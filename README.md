@@ -34,7 +34,19 @@
 - **CodeMirror 6 markdown 编辑器**：原生支持 markdown 高亮 + 防抖自动保存 + Cmd/Ctrl+S
 - **跨平台**：Mac (Apple Silicon + Intel) + Windows (x64)
 
-## 快速开始
+## 下载安装包
+
+最新发布版：https://github.com/chaserr/novel-craft-studio/releases/latest
+
+- **Mac (Apple Silicon)**：下载 `novel-craft-studio-<version>-arm64.dmg`
+- **Mac (Intel)**：下载 `novel-craft-studio-<version>-x64.dmg`
+- **Windows**：下载 `novel-craft-studio-Setup-<version>.exe`
+
+首次启动需要绕过 Gatekeeper（Mac） / SmartScreen（Windows）—— 本 app 未做代码签名（开源项目，签名需付费证书）：
+- **Mac**：右键 dmg → 打开，或系统偏好设置 → 安全性与隐私 → "仍要打开"
+- **Windows**：SmartScreen 拦截后点"更多信息" → "仍要运行"
+
+## 从源码运行（开发者）
 
 ### 前提
 

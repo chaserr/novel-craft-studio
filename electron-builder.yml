@@ -2,6 +2,12 @@ appId: io.github.chaserr.novel-craft-studio
 productName: novel-craft-studio
 copyright: Copyright © 2026 chaser
 
+publish:
+  - provider: github
+    owner: chaserr
+    repo: novel-craft-studio
+    releaseType: release
+
 directories:
   buildResources: resources
   output: dist
