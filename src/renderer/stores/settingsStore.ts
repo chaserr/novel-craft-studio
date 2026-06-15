@@ -15,7 +15,7 @@ interface SettingsState {
 
 const initial: AppSettings = {
   novelCraftPath: '',
-  activeProvider: 'anthropic',
+  activeProvider: 'deepseek',
   models: {
     openai: 'gpt-4o',
     anthropic: 'claude-opus-4-5-20251101',

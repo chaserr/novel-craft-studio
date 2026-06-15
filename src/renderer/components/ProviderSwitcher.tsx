@@ -3,19 +3,19 @@ import { useSettings } from '../stores/settingsStore';
 import type { ProviderId } from '../../shared/types';
 
 const PROVIDER_LABELS: Record<ProviderId, string> = {
-  openai: 'OpenAI',
+  deepseek: 'DeepSeek',
   anthropic: 'Claude',
-  deepseek: 'DeepSeek'
+  openai: 'OpenAI'
 };
 
 const MODELS: Record<ProviderId, string[]> = {
-  openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'o1-mini', 'o1-preview'],
+  deepseek: ['deepseek-chat', 'deepseek-reasoner'],
   anthropic: [
     'claude-opus-4-5-20251101',
     'claude-sonnet-4-5',
     'claude-haiku-4-5-20251001'
   ],
-  deepseek: ['deepseek-chat', 'deepseek-reasoner']
+  openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'o1-mini', 'o1-preview']
 };
 
 export default function ProviderSwitcher(): JSX.Element {

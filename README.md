@@ -27,7 +27,7 @@
 ## 特性
 
 - **三栏 IDE 布局**：项目资料 / 章节编辑 / LLM chat 一屏看全
-- **三家 LLM 任意切换**：OpenAI / Claude / DeepSeek（统一 streaming 接口）
+- **三家 LLM 任意切换**：DeepSeek（默认）/ Claude / OpenAI（统一 streaming 接口）。**DeepSeek 是中文小说写作最易上手的——扫码注册 + 充值 5 元就能用**，Claude / OpenAI 需要去对应 platform 申请 key
 - **API Key 走系统 keychain**：Mac Keychain / Windows Credential Manager 加密存储
 - **复用 novel-craft 模板**：新建项目时从 [novel-craft](https://github.com/chaserr/novel-craft) 仓库读 RTK / 大纲 / 章节大纲 / 伏笔 / 语录 / 人物档案 等模板
 - **RTK 自动注入 system prompt**：每次 chat 时自动把项目 RTK.md 拼进上下文

@@ -21,15 +21,18 @@ interface Props {
 }
 
 const PROVIDER_LABELS: Record<ProviderId, string> = {
-  openai: 'OpenAI',
-  anthropic: 'Claude (Anthropic)',
-  deepseek: 'DeepSeek'
+  deepseek: 'DeepSeek',
+  anthropic: 'Claude',
+  openai: 'OpenAI'
 };
 
 const PROVIDER_HELP: Record<ProviderId, string> = {
-  openai: '从 https://platform.openai.com/api-keys 创建 API key',
-  anthropic: '从 https://console.anthropic.com/settings/keys 创建 API key',
-  deepseek: '从 https://platform.deepseek.com/api_keys 创建 API key'
+  deepseek:
+    '⭐ 推荐首选。从 https://platform.deepseek.com/api_keys 创建 API key。中文写作能力强，价格便宜（充值 5 元 ≈ 几十万 token），扫码即可注册。',
+  anthropic:
+    '从 https://console.anthropic.com/settings/keys 创建 API key。注意：与 Claude.ai 订阅是分开计费的两个账户。',
+  openai:
+    '从 https://platform.openai.com/api-keys 创建 API key。注意：与 ChatGPT Plus 订阅是分开计费的两个账户。'
 };
 
 export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
@@ -100,7 +103,7 @@ export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
           API key 通过系统 keychain 加密存储。留空表示不修改已有的 key。
         </Text>
 
-        <Tabs defaultValue="anthropic">
+        <Tabs defaultValue="deepseek">
           <Tabs.List>
             {(Object.keys(PROVIDER_LABELS) as ProviderId[]).map((p) => (
               <Tabs.Tab key={p} value={p}>
