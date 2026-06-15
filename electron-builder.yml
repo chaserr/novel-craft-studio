@@ -1,0 +1,49 @@
+appId: io.github.chaserr.novel-craft-studio
+productName: novel-craft-studio
+copyright: Copyright © 2026 chaser
+
+directories:
+  buildResources: resources
+  output: dist
+
+files:
+  - out/**/*
+  - package.json
+  - "!node_modules/**/{CHANGELOG.md,README.md,readme.md,readme,test,__tests__,tests,powered-test,example,examples}"
+  - "!**/node_modules/.cache"
+  - "!**/*.{md,markdown}"
+
+asarUnpack:
+  - "node_modules/keytar/**/*"
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  identity: null
+
+dmg:
+  artifactName: ${productName}-${version}-${arch}.dmg
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+
+linux:
+  target:
+    - AppImage
+  category: Office

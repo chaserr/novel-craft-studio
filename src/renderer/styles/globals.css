@@ -1,0 +1,22 @@
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* drag region on macOS — top 24px of window */
+.app-titlebar {
+  -webkit-app-region: drag;
+}
+.app-titlebar button,
+.app-titlebar input,
+.app-titlebar [data-no-drag] {
+  -webkit-app-region: no-drag;
+}

@@ -1,0 +1,46 @@
+{
+  "name": "novel-craft-studio",
+  "version": "0.1.0",
+  "description": "Desktop GUI for novel-craft. Long-form novel writing studio with multi-LLM support (OpenAI / Claude / DeepSeek).",
+  "author": "chaser",
+  "license": "MIT",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "build:mac": "electron-vite build && electron-builder --mac",
+    "build:win": "electron-vite build && electron-builder --win",
+    "build:all": "electron-vite build && electron-builder -mwl",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.json",
+    "start": "electron-vite preview"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.27.0",
+    "@codemirror/lang-markdown": "^6.3.0",
+    "@codemirror/theme-one-dark": "^6.1.2",
+    "@mantine/core": "^7.13.0",
+    "@mantine/hooks": "^7.13.0",
+    "@mantine/notifications": "^7.13.0",
+    "@tabler/icons-react": "^3.17.0",
+    "@uiw/react-codemirror": "^4.23.0",
+    "keytar": "^7.9.0",
+    "openai": "^4.62.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.0",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.0",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "electron": "^32.0.0",
+    "electron-builder": "^24.13.3",
+    "electron-vite": "^2.3.0",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2"
+  }
+}
