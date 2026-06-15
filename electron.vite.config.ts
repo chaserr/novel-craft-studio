@@ -29,9 +29,15 @@ export default defineConfig({
       }
     },
     build: {
+      // 关闭 module script 的 crossorigin 属性 —— Electron file:// 下会让 ESM 加载失败
+      modulePreload: false,
       rollupOptions: {
         input: { index: resolve(__dirname, 'src/renderer/index.html') }
       }
+    },
+    // 让 Vite 不给 script 加 crossorigin
+    experimental: {
+      renderBuiltUrl: (filename: string): string => `./${filename}`
     }
   }
 });

@@ -2,7 +2,12 @@ import { ipcMain, app } from 'electron';
 import keytar from 'keytar';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
 import type { AppSettings, ProviderId } from '../../shared/types';
+
+const execAsync = promisify(exec);
+const NOVEL_CRAFT_REPO = 'https://github.com/chaserr/novel-craft.git';
 
 const SERVICE = 'novel-craft-studio';
 
@@ -72,6 +77,43 @@ export function registerKeychainIpc(): void {
 
   ipcMain.handle('settings:deleteApiKey', async (_e, p: ProviderId) => {
     await keytar.deletePassword(SERVICE, p);
+  });
+
+  ipcMain.handle('settings:downloadNovelCraft', async () => {
+    const targetDir = join(app.getPath('userData'), 'novel-craft');
+
+    // 先确认 git 可用
+    try {
+      await execAsync('git --version');
+    } catch {
+      throw new Error(
+        '系统未安装 git。请先安装 git（macOS: xcode-select --install；Windows: 从 git-scm.com 下载）'
+      );
+    }
+
+    if (existsSync(join(targetDir, '.git'))) {
+      // 已存在 → git pull 更新
+      await execAsync(`git -C "${targetDir}" pull --ff-only`, {
+        timeout: 60_000
+      });
+    } else {
+      // 不存在 → clone
+      if (existsSync(targetDir)) {
+        throw new Error(
+          `目标路径已存在但不是 git 仓库：${targetDir}。请手动删除后重试，或在 Settings 中手填别的路径。`
+        );
+      }
+      await execAsync(
+        `git clone --depth 1 "${NOVEL_CRAFT_REPO}" "${targetDir}"`,
+        { timeout: 180_000 }
+      );
+    }
+
+    // 保存路径到 settings.json
+    const s = loadSettings();
+    s.novelCraftPath = targetDir;
+    saveSettings(s);
+    return targetDir;
   });
 }
 

@@ -10,6 +10,7 @@ import {
   Divider,
   Tabs
 } from '@mantine/core';
+import { IconDownload } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useSettings } from '../stores/settingsStore';
 import type { ProviderId } from '../../shared/types';
@@ -42,6 +43,7 @@ export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
   const setKey = useSettings((s) => s.setApiKey);
 
   const [path, setLocalPath] = useState(novelCraftPath);
+  const [downloading, setDownloading] = useState(false);
   const [keys, setKeys] = useState<Record<ProviderId, string>>({
     openai: '',
     anthropic: '',
@@ -58,6 +60,29 @@ export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
   const pickPath = async (): Promise<void> => {
     const dir = await api.project.pickDirectory();
     if (dir) setLocalPath(dir);
+  };
+
+  const downloadNovelCraft = async (): Promise<void> => {
+    setDownloading(true);
+    try {
+      const dir = await api.settings.downloadNovelCraft();
+      setLocalPath(dir);
+      await useSettings.getState().load();
+      notifications.show({
+        title: '下载完成',
+        message: `novel-craft 已下载到 ${dir}`,
+        color: 'green'
+      });
+    } catch (err) {
+      notifications.show({
+        title: '下载失败',
+        message: err instanceof Error ? err.message : String(err),
+        color: 'red',
+        autoClose: false
+      });
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const handleSave = async (): Promise<void> => {
@@ -77,17 +102,25 @@ export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
             novel-craft 仓库路径
           </Text>
           <Text size="xs" c="dimmed" mb={6}>
-            新建项目时会从该仓库的 templates 目录读取模板。建议{' '}
-            <code>git clone https://github.com/chaserr/novel-craft.git</code>{' '}
-            后填入本地路径。
+            新建项目时会从这里的 templates 目录读取小说模板（RTK / 大纲 / 伏笔清单 / 人物档案等）。
+            <br />
+            <b>首次使用建议点"自动下载"</b>——会自动 git clone 到系统目录。也可以"选择…"指定本地已有的 clone。
           </Text>
           <Group gap="xs">
             <TextInput
               value={path}
               onChange={(e) => setLocalPath(e.currentTarget.value)}
-              placeholder="/path/to/novel-craft"
+              placeholder="点右边自动下载，或选择本地已 clone 的 novel-craft 仓库"
               style={{ flex: 1 }}
             />
+            <Button
+              variant="filled"
+              leftSection={<IconDownload size={14} />}
+              onClick={() => void downloadNovelCraft()}
+              loading={downloading}
+            >
+              自动下载
+            </Button>
             <Button variant="default" onClick={() => void pickPath()}>
               选择…
             </Button>

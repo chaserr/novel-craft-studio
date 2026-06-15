@@ -46,7 +46,7 @@ export default function NewProjectModal({
     coreTone: [],
     mainCharacters: '',
     platform: '私人创作',
-    scale: '中长 30-80 章',
+    scale: '中长篇 30-80 万字（30-80 章）',
     multiverse: false
   });
 
@@ -169,10 +169,13 @@ export default function NewProjectModal({
           />
           <Select
             label="篇幅预期"
+            description="按字数 / 章数选最贴近的；后续可在 RTK.md 改"
             data={[
-              '短篇 30 章内',
-              '中长 30-80 章',
-              '长篇 80+ 章'
+              { value: '短篇 5-30 万字（10-30 章）', label: '短篇 · 5-30 万字（10-30 章）' },
+              { value: '中长篇 30-80 万字（30-80 章）', label: '中长篇 · 30-80 万字（30-80 章）' },
+              { value: '长篇 80-200 万字（80-200 章）', label: '长篇 · 80-200 万字（80-200 章）' },
+              { value: '网文长篇 200-500 万字（200-500 章）', label: '网文长篇 · 200-500 万字（200-500 章）' },
+              { value: '网文超长 500 万字以上（500+ 章）', label: '网文超长 · 500 万字以上（500+ 章）' }
             ]}
             value={fields.scale}
             onChange={(v) => v && setFields({ ...fields, scale: v })}

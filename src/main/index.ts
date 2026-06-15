@@ -27,6 +27,17 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
+    // production 也开 devtools 方便用户诊断（稳定后可移除）
+    if (process.env.NOVEL_CRAFT_DEVTOOLS === '1' || !process.env['ELECTRON_RENDERER_URL']) {
+      mainWindow?.webContents.openDevTools({ mode: 'detach' });
+    }
+  });
+
+  mainWindow.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    console.error('[renderer] did-fail-load', { code, desc, url });
+  });
+  mainWindow.webContents.on('render-process-gone', (_e, details) => {
+    console.error('[renderer] render-process-gone', details);
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {

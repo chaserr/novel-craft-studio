@@ -10,6 +10,9 @@ import type {
 } from '../shared/types';
 
 const api = {
+  /* ---------- platform info ---------- */
+  platform: process.platform as NodeJS.Platform,
+
   /* ---------- keychain / settings ---------- */
   settings: {
     get: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
@@ -24,7 +27,9 @@ const api = {
     hasApiKey: (p: ProviderId): Promise<boolean> =>
       ipcRenderer.invoke('settings:hasApiKey', p),
     deleteApiKey: (p: ProviderId): Promise<void> =>
-      ipcRenderer.invoke('settings:deleteApiKey', p)
+      ipcRenderer.invoke('settings:deleteApiKey', p),
+    downloadNovelCraft: (): Promise<string> =>
+      ipcRenderer.invoke('settings:downloadNovelCraft')
   },
 
   /* ---------- project ---------- */

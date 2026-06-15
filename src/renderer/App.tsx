@@ -12,6 +12,7 @@ import NewProjectModal from './components/NewProjectModal';
 import { api } from './lib/ipc';
 
 export default function App(): JSX.Element {
+  const isMac = api.platform === 'darwin';
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const loadSettings = useSettings((s) => s.load);
@@ -50,7 +51,7 @@ export default function App(): JSX.Element {
     <AppShell header={{ height: 48 }} navbar={{ width: 280, breakpoint: 'sm' }} aside={{ width: 420, breakpoint: 'sm' }} padding={0}>
       <AppShell.Header className="app-titlebar">
         <Group justify="space-between" h="100%" px="md" wrap="nowrap">
-          <Group gap="xs" pl={process.platform === 'darwin' ? 60 : 0}>
+          <Group gap="xs" pl={isMac ? 60 : 0}>
             <Title order={5}>novel-craft-studio</Title>
             {meta && (
               <Badge variant="light" color="indigo">
