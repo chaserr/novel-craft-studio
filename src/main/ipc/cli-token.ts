@@ -71,16 +71,27 @@ export function readCodexToken(): ResolvedToken | null {
   const accessToken = t.access_token;
   if (!accessToken) return null;
 
-  // Derive chatgpt_account_id from id_token claims if not directly present.
+  // chatgpt_account_id lives in the namespaced custom claim of the JWT, NOT at root.
+  // Real shape: claims["https://api.openai.com/auth"].chatgpt_account_id
+  type AuthClaims = {
+    exp?: number;
+    chatgpt_account_id?: string;
+    'https://api.openai.com/auth'?: { chatgpt_account_id?: string };
+  };
+  const accessClaims = parseJwt<AuthClaims>(accessToken);
   let accountId = t.account_id;
-  if (!accountId && t.id_token) {
-    const claims = parseJwt<{ chatgpt_account_id?: string }>(t.id_token);
-    accountId = claims?.chatgpt_account_id;
+  if (!accountId) {
+    accountId =
+      accessClaims?.['https://api.openai.com/auth']?.chatgpt_account_id ??
+      accessClaims?.chatgpt_account_id;
   }
-  // Derive expiry from access_token (it's a JWT too).
-  let expiresAt: number | undefined;
-  const accessClaims = parseJwt<{ exp?: number }>(accessToken);
-  if (accessClaims?.exp) expiresAt = accessClaims.exp * 1000;
+  if (!accountId && t.id_token) {
+    const idClaims = parseJwt<AuthClaims>(t.id_token);
+    accountId =
+      idClaims?.['https://api.openai.com/auth']?.chatgpt_account_id ??
+      idClaims?.chatgpt_account_id;
+  }
+  const expiresAt = accessClaims?.exp ? accessClaims.exp * 1000 : undefined;
 
   return {
     source: 'cli',
@@ -229,37 +240,38 @@ function isExpiring(t: ResolvedToken, bufferMs = 5 * 60_000): boolean {
 }
 
 /**
- * Three-tier resolution (CLI → self-OAuth → API key).
- * For now only tier 1 + tier 3 are wired here; self-OAuth (tier 2) is added in P6.
+ * Tier 1 CLI mode is now satisfied if the CLI binary AND the auth artifact both exist.
+ * We do NOT read the token; the CLI subprocess will read/refresh it itself.
+ * This keeps us from having to track session refresh / Cloudflare cookies / quota
+ * — the official CLI does all of that.
+ */
+function codexLoggedIn(): boolean {
+  // ~/.codex/auth.json + tokens.access_token present
+  return !!readCodexToken();
+}
+async function claudeLoggedIn(): Promise<boolean> {
+  return !!(await readClaudeToken());
+}
+
+/**
+ * Three-tier resolution.
+ * Tier 1: official CLI is installed AND logged in → returned token marks source='cli',
+ *         accessToken is empty (subprocess will use its own auth).
+ * Tier 3: API key from keychain.
  */
 export async function resolveToken(
   provider: ProviderId,
   fallbackApiKey: () => Promise<string | null>
 ): Promise<ResolvedToken | null> {
-  // Tier 1: CLI
-  if (provider === 'openai') {
-    let t = readCodexToken();
-    if (t && isExpiring(t) && t.refreshToken) {
-      try {
-        t = await refreshCodexToken(t.refreshToken);
-      } catch {
-        /* fall through to apikey */
-      }
-    }
-    if (t) return t;
-  } else if (provider === 'anthropic') {
-    let t = await readClaudeToken();
-    if (t && isExpiring(t) && t.refreshToken) {
-      try {
-        t = await refreshClaudeToken(t.refreshToken);
-      } catch {
-        /* fall through */
-      }
-    }
-    if (t) return t;
+  // Tier 1: CLI (preferred). CLI manages its own token, we just signal "use CLI".
+  if (provider === 'openai' && codexLoggedIn()) {
+    return { source: 'cli', accessToken: '' };
+  }
+  if (provider === 'anthropic' && (await claudeLoggedIn())) {
+    return { source: 'cli', accessToken: '' };
   }
 
-  // Tier 3: API key from keychain
+  // Tier 3: API key
   const key = await fallbackApiKey();
   if (key) return { source: 'apikey', accessToken: key };
 
@@ -277,17 +289,18 @@ export async function probeAuthStatus(
       : { strategy: 'none', label: '未配置' };
   }
   if (provider === 'openai') {
-    if (readCodexToken()) return { strategy: 'cli', label: '已登录 (Codex CLI)' };
+    if (codexLoggedIn())
+      return { strategy: 'cli', label: '已登录 (Codex CLI 子进程)' };
     return hasApiKey
       ? { strategy: 'apikey', label: '已配置 API Key' }
-      : { strategy: 'none', label: '未配置' };
+      : { strategy: 'none', label: '未配置 / 未安装 Codex CLI' };
   }
   if (provider === 'anthropic') {
-    if (await readClaudeToken())
-      return { strategy: 'cli', label: '已登录 (Claude Code CLI)' };
+    if (await claudeLoggedIn())
+      return { strategy: 'cli', label: '已登录 (Claude Code CLI 子进程)' };
     return hasApiKey
       ? { strategy: 'apikey', label: '已配置 API Key' }
-      : { strategy: 'none', label: '未配置' };
+      : { strategy: 'none', label: '未配置 / 未安装 Claude Code CLI' };
   }
   return { strategy: 'none', label: '未配置' };
 }

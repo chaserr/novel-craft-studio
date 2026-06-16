@@ -211,7 +211,20 @@ export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
                   </Text>
                 </Box>
 
-                {p !== 'deepseek' && (
+                {p !== 'deepseek' && authStatus[p].strategy === 'cli' && (
+                  <Alert
+                    variant="light"
+                    color="green"
+                    icon={<IconAlertCircle size={14} />}
+                  >
+                    <Text size="xs">
+                      <b>已自动复用本机 {p === 'openai' ? 'Codex' : 'Claude Code'} CLI 登录态。</b>
+                      不需要再走 OAuth。如果 token 失效，CLI 会自动续期；或在终端跑一次{' '}
+                      <code>{p === 'openai' ? 'codex login' : 'claude /login'}</code>。
+                    </Text>
+                  </Alert>
+                )}
+                {p !== 'deepseek' && authStatus[p].strategy !== 'cli' && (
                   <>
                     <Text size="xs">{PROVIDER_HELP_OAUTH[p]}</Text>
                     <Button
