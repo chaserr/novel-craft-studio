@@ -1,5 +1,32 @@
 # Changelog
 
+## [v0.3.0] - 2026-06-16
+
+### 多项目 / Workspace
+
+- **支持同时打开多个项目**：顶栏改成项目标签栏，点击切换 active；× 关闭单项目，剩余项目继续保留
+- **历史打开记录**：欢迎页底部新增「最近打开」面板，最多 10 个，按上次打开时间倒序；支持「从列表移除」
+- 历史记录持久化到 settings.json（同步关键字段：路径、书名、上次打开时间戳）
+
+### 主题
+
+- **亮色 / 暗色 / 跟随系统**三档可切换，顶栏 ☀ / 🌙 / 🖥 图标循环
+- 偏好持久化到 settings.json，跨会话保留
+- Markdown 预览样式改用 `light-dark()` CSS function 自适应
+
+### Agent 自定义
+
+- Settings 新增「自定义 agents 路径」字段
+- 填写后，workflow 引擎读 agent system prompt 时优先查找 `<customAgentsPath>/<role>.md`
+- 留空或文件不存在则 fallback 到 `novel-craft/agents/<role>.md` 默认
+- 让你 fork / 微调 prompt 时不用复制整个 novel-craft 仓库
+
+### 私有反商业仓库重组
+
+- 私有 ledger 仓库重命名为 `oss-defense-vault`，按公开仓库名分子目录
+- release.yml 的 ledger 路径动态派生自 `GITHUB_REPOSITORY`，让新项目无缝接入
+- 加根 README + 项目子 README 说明 vault 用途与各子目录约定
+
 ## [v0.2.0] - 2026-06-16
 
 > Orchid 的第一个正式版（原 novel-craft-studio）。重命名、协议变更、引入反盗版指纹。

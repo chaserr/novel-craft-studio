@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AppSettings, ProviderId } from '../../shared/types';
+import type { AppSettings, ColorScheme, ProviderId } from '../../shared/types';
 import { api } from '../lib/ipc';
 
 /** 与 probeAuth 返回的 strategy 同构。'none' 才意味着真的没配置。 */
@@ -20,6 +20,8 @@ interface SettingsState {
   setActiveProvider: (p: ProviderId) => Promise<void>;
   setModel: (p: ProviderId, m: string) => Promise<void>;
   setApiKey: (p: ProviderId, key: string) => Promise<void>;
+  setColorScheme: (c: ColorScheme) => Promise<void>;
+  setCustomAgentsPath: (p: string) => Promise<void>;
 }
 
 const initial: AppSettings = {
@@ -30,7 +32,10 @@ const initial: AppSettings = {
     anthropic: 'claude-sonnet-4-5',
     deepseek: 'deepseek-chat'
   },
-  preferredAuth: {}
+  preferredAuth: {},
+  recentProjects: [],
+  colorScheme: 'dark',
+  customAgentsPath: ''
 };
 
 export const useSettings = create<SettingsState>((set, get) => ({
@@ -99,5 +104,15 @@ export const useSettings = create<SettingsState>((set, get) => ({
   setApiKey: async (p, key) => {
     await api.settings.setApiKey(p, key);
     set({ hasApiKey: { ...get().hasApiKey, [p]: !!key } });
+  },
+
+  setColorScheme: async (c) => {
+    await api.settings.setColorScheme(c);
+    set({ settings: { ...get().settings, colorScheme: c } });
+  },
+
+  setCustomAgentsPath: async (p) => {
+    await api.settings.setCustomAgentsPath(p);
+    set({ settings: { ...get().settings, customAgentsPath: p } });
   }
 }));

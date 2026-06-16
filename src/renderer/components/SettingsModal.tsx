@@ -52,11 +52,14 @@ const PROVIDER_HELP_APIKEY: Record<ProviderId, string> = {
 
 export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
   const novelCraftPath = useSettings((s) => s.settings.novelCraftPath);
+  const customAgentsPath = useSettings((s) => s.settings.customAgentsPath ?? '');
   const activeProvider = useSettings((s) => s.settings.activeProvider);
   const hasApiKey = useSettings((s) => s.hasApiKey);
   const setPath = useSettings((s) => s.setNovelCraftPath);
+  const setCustomAgentsPath = useSettings((s) => s.setCustomAgentsPath);
   const setActiveProvider = useSettings((s) => s.setActiveProvider);
   const setKey = useSettings((s) => s.setApiKey);
+  const [agentsPath, setAgentsPathLocal] = useState<string>(customAgentsPath);
 
   const [path, setLocalPath] = useState(novelCraftPath);
   const [downloading, setDownloading] = useState(false);
@@ -142,11 +145,17 @@ export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
 
   const handleSave = async (): Promise<void> => {
     await setPath(path.trim());
+    await setCustomAgentsPath(agentsPath.trim());
     for (const p of Object.keys(keys) as ProviderId[]) {
       if (keys[p]) await setKey(p, keys[p]);
     }
     notifications.show({ message: '设置已保存', color: 'green' });
     onClose();
+  };
+
+  const pickAgentsDir = async (): Promise<void> => {
+    const dir = await api.project.pickDirectory();
+    if (dir) setAgentsPathLocal(dir);
   };
 
   return (
@@ -176,6 +185,30 @@ export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
               自动下载
             </Button>
             <Button variant="default" onClick={() => void pickPath()}>
+              选择…
+            </Button>
+          </Group>
+        </div>
+
+        {/* 自定义 agents 路径（覆盖默认 novel-craft/agents/） */}
+        <div>
+          <Text size="sm" fw={500} mb={4}>
+            自定义 agents 路径（可选）
+          </Text>
+          <Text size="xs" c="dimmed" mb={6}>
+            想替换或微调单个 novel-* agent 的 system prompt？把改过的{' '}
+            <code>novel-writer.md</code> / <code>novel-polisher.md</code> 等放进
+            一个文件夹，填这里即可。优先级：此处文件 &gt; novel-craft 默认。
+            留空则全部用 novel-craft 默认。
+          </Text>
+          <Group gap="xs">
+            <TextInput
+              value={agentsPath}
+              onChange={(e) => setAgentsPathLocal(e.currentTarget.value)}
+              placeholder="留空 = 用 novel-craft/agents/ 默认；填则用你的自定义"
+              style={{ flex: 1 }}
+            />
+            <Button variant="default" onClick={() => void pickAgentsDir()}>
               选择…
             </Button>
           </Group>

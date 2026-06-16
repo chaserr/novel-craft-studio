@@ -19,8 +19,7 @@ const theme = createTheme({
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <MantineProvider theme={theme} defaultColorScheme="dark">
-      {/* autoClose 2s — 之前默认 4s 太长。单条 notification 可以再覆盖 */}
+    <MantineProvider theme={theme} defaultColorScheme="auto">
       <Notifications position="top-right" autoClose={2000} />
       <App />
     </MantineProvider>

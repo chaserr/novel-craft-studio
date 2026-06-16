@@ -240,6 +240,7 @@ export const useWorkflow = create<WorkflowState>((set, get) => {
           chapterPaths,
           projectRoot,
           novelCraftPath,
+          customAgentsPath: useSettings.getState().settings.customAgentsPath || undefined,
           extraContext: extraContext.trim() || undefined
         });
       } catch (err) {

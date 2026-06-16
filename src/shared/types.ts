@@ -87,12 +87,31 @@ export interface ProviderAuthStatus {
   expiresAt?: number;
 }
 
+export interface RecentProject {
+  rootPath: string;
+  bookTitle: string;
+  lastOpenedAt: number;
+}
+
+export type ColorScheme = 'light' | 'dark' | 'auto';
+
 export interface AppSettings {
   novelCraftPath: string;
   activeProvider: ProviderId;
   models: Record<ProviderId, string>;
   /** Preferred token strategy per provider when multiple are available. */
   preferredAuth: Partial<Record<ProviderId, AuthStrategy>>;
+  /** Recently opened project roots, newest first; capped to last 10. */
+  recentProjects?: RecentProject[];
+  /** UI color scheme; default 'dark' for back-compat. */
+  colorScheme?: ColorScheme;
+  /**
+   * Optional override for agent system-prompt directory. When set, workflow
+   * engine reads <customAgentsPath>/<role>.md instead of
+   * <novelCraftPath>/agents/<role>.md. Lets users fork agent prompts without
+   * forking the whole novel-craft repo.
+   */
+  customAgentsPath?: string;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -209,6 +228,8 @@ export interface WorkflowRunRequest {
   projectRoot: string;
   /** novel-craft local path for agent system prompts. */
   novelCraftPath: string;
+  /** Optional override: read agent prompts from <customAgentsPath>/<role>.md first. */
+  customAgentsPath?: string;
   /**
    * 用户在新建项目时没填详细字段，或现有项目 RTK 内容稀疏时，引导用户在 UI 里
    * 输入的故事简述。后端会把它附在每个 agent 的用户消息最上面，让 LLM 有依据。

@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
-import type { AppSettings, ProviderId } from '../../shared/types';
+import type { AppSettings, ColorScheme, ProviderId, RecentProject } from '../../shared/types';
 
 const execAsync = promisify(exec);
 const NOVEL_CRAFT_REPO = 'https://github.com/chaserr/novel-craft.git';
@@ -28,9 +28,14 @@ function defaultSettings(): AppSettings {
       anthropic: 'claude-sonnet-4-5',
       deepseek: 'deepseek-chat'
     },
-    preferredAuth: {}
+    preferredAuth: {},
+    recentProjects: [],
+    colorScheme: 'dark',
+    customAgentsPath: ''
   };
 }
+
+const RECENT_LIMIT = 10;
 
 function loadSettings(): AppSettings {
   const p = configPath();
@@ -80,6 +85,38 @@ export function registerKeychainIpc(): void {
 
   ipcMain.handle('settings:deleteApiKey', async (_e, p: ProviderId) => {
     await keytar.deletePassword(SERVICE, p);
+  });
+
+  ipcMain.handle('settings:setColorScheme', (_e, c: ColorScheme) => {
+    const s = loadSettings();
+    s.colorScheme = c;
+    saveSettings(s);
+  });
+
+  ipcMain.handle('settings:setCustomAgentsPath', (_e, p: string) => {
+    const s = loadSettings();
+    s.customAgentsPath = p;
+    saveSettings(s);
+  });
+
+  ipcMain.handle('settings:touchRecentProject', (_e, rootPath: string, bookTitle: string) => {
+    const s = loadSettings();
+    const existing = s.recentProjects ?? [];
+    const filtered = existing.filter((r) => r.rootPath !== rootPath);
+    const next: RecentProject[] = [
+      { rootPath, bookTitle, lastOpenedAt: Date.now() },
+      ...filtered
+    ].slice(0, RECENT_LIMIT);
+    s.recentProjects = next;
+    saveSettings(s);
+    return next;
+  });
+
+  ipcMain.handle('settings:removeRecentProject', (_e, rootPath: string) => {
+    const s = loadSettings();
+    s.recentProjects = (s.recentProjects ?? []).filter((r) => r.rootPath !== rootPath);
+    saveSettings(s);
+    return s.recentProjects;
   });
 
   ipcMain.handle('settings:downloadNovelCraft', async () => {

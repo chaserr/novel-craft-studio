@@ -5,12 +5,14 @@ import type {
   ChatMode,
   ChatSession,
   ChatSessionSummary,
+  ColorScheme,
   LlmStreamEvent,
   NewProjectFields,
   ProjectFileEntry,
   ProjectMeta,
   ProviderId,
   ReasoningEffort,
+  RecentProject,
   WorkflowEvent,
   WorkflowRunRequest
 } from '../shared/types';
@@ -48,7 +50,15 @@ const api = {
     deleteApiKey: (p: ProviderId): Promise<void> =>
       ipcRenderer.invoke('settings:deleteApiKey', p),
     downloadNovelCraft: (): Promise<string> =>
-      ipcRenderer.invoke('settings:downloadNovelCraft')
+      ipcRenderer.invoke('settings:downloadNovelCraft'),
+    setColorScheme: (c: ColorScheme): Promise<void> =>
+      ipcRenderer.invoke('settings:setColorScheme', c),
+    setCustomAgentsPath: (p: string): Promise<void> =>
+      ipcRenderer.invoke('settings:setCustomAgentsPath', p),
+    touchRecentProject: (rootPath: string, bookTitle: string): Promise<RecentProject[]> =>
+      ipcRenderer.invoke('settings:touchRecentProject', rootPath, bookTitle),
+    removeRecentProject: (rootPath: string): Promise<RecentProject[]> =>
+      ipcRenderer.invoke('settings:removeRecentProject', rootPath)
   },
 
   /* ---------- project ---------- */

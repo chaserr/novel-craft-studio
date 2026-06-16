@@ -1,6 +1,28 @@
 import { useEffect, useState } from 'react';
-import { AppShell, Group, Title, Button, ActionIcon, Tooltip, Badge, Tabs, Box } from '@mantine/core';
-import { IconSettings, IconFolderOpen, IconFilePlus, IconLayoutDashboard, IconMessage, IconInfoCircle } from '@tabler/icons-react';
+import {
+  AppShell,
+  Group,
+  Title,
+  Button,
+  ActionIcon,
+  Tooltip,
+  Tabs,
+  Box,
+  CloseButton,
+  Menu,
+  useMantineColorScheme
+} from '@mantine/core';
+import {
+  IconSettings,
+  IconFolderOpen,
+  IconFilePlus,
+  IconLayoutDashboard,
+  IconMessage,
+  IconInfoCircle,
+  IconSun,
+  IconMoon,
+  IconDeviceDesktop
+} from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useSettings } from './stores/settingsStore';
 import { useProject } from './stores/projectStore';
@@ -21,19 +43,28 @@ export default function App(): JSX.Element {
   const loadSettings = useSettings((s) => s.load);
   const settingsLoaded = useSettings((s) => s.loaded);
   const novelCraftPath = useSettings((s) => s.settings.novelCraftPath);
-  const meta = useProject((s) => s.meta);
+  const settingsColorScheme = useSettings((s) => s.settings.colorScheme);
+  const setColorSchemeSetting = useSettings((s) => s.setColorScheme);
+  const opened = useProject((s) => s.opened);
+  const activeId = useProject((s) => s.activeId);
+  const setActive = useProject((s) => s.setActive);
+  const closeProjectById = useProject((s) => s.closeProjectById);
   const openProject = useProject((s) => s.openProject);
+  const { colorScheme, setColorScheme } = useMantineColorScheme();
 
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
 
-  // 首次启动如果没设置 novel-craft 路径，自动弹 Settings
+  // 用户首次启动 / 未配置 novel-craft 路径时，弹设置；否则同步 colorScheme
   useEffect(() => {
-    if (settingsLoaded && !novelCraftPath) {
-      setSettingsOpen(true);
+    if (!settingsLoaded) return;
+    if (!novelCraftPath) setSettingsOpen(true);
+    if (settingsColorScheme && settingsColorScheme !== colorScheme) {
+      setColorScheme(settingsColorScheme);
     }
-  }, [settingsLoaded, novelCraftPath]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsLoaded, novelCraftPath, settingsColorScheme]);
 
   const handleOpen = async (): Promise<void> => {
     const dir = await api.project.pickDirectory();
@@ -50,6 +81,23 @@ export default function App(): JSX.Element {
     }
   };
 
+  const cycleColorScheme = (): void => {
+    const order = ['light', 'dark', 'auto'] as const;
+    const cur = settingsColorScheme ?? 'dark';
+    const next = order[(order.indexOf(cur) + 1) % order.length];
+    setColorScheme(next);
+    void setColorSchemeSetting(next);
+  };
+
+  const colorSchemeIcon =
+    settingsColorScheme === 'light' ? (
+      <IconSun size={16} />
+    ) : settingsColorScheme === 'auto' ? (
+      <IconDeviceDesktop size={16} />
+    ) : (
+      <IconMoon size={16} />
+    );
+
   return (
     <AppShell
       header={{ height: 48 }}
@@ -59,15 +107,51 @@ export default function App(): JSX.Element {
     >
       <AppShell.Header className="app-titlebar">
         <Group justify="space-between" h="100%" px="md" wrap="nowrap">
-          <Group gap="xs" pl={isMac ? 60 : 0}>
-            <Title order={5}>Orchid</Title>
-            {meta && (
-              <Badge variant="light" color="indigo">
-                {meta.bookTitle}
-              </Badge>
+          <Group gap="xs" pl={isMac ? 60 : 0} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+            <Title order={5} style={{ flexShrink: 0 }}>
+              Orchid
+            </Title>
+            {opened.length > 0 && (
+              <Group
+                gap={4}
+                wrap="nowrap"
+                style={{
+                  overflowX: 'auto',
+                  minWidth: 0,
+                  flex: 1,
+                  scrollbarWidth: 'thin'
+                }}
+              >
+                {opened.map((p) => {
+                  const isActive = p.id === activeId;
+                  return (
+                    <Button
+                      key={p.id}
+                      size="xs"
+                      variant={isActive ? 'light' : 'subtle'}
+                      color="indigo"
+                      onClick={() => setActive(p.id)}
+                      data-no-drag
+                      style={{ flexShrink: 0, paddingRight: 4 }}
+                      rightSection={
+                        <CloseButton
+                          size="xs"
+                          aria-label={`关闭 ${p.meta.bookTitle}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            closeProjectById(p.id);
+                          }}
+                        />
+                      }
+                    >
+                      {p.meta.bookTitle}
+                    </Button>
+                  );
+                })}
+              </Group>
             )}
           </Group>
-          <Group gap="xs">
+          <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
             <Button
               size="xs"
               variant="default"
@@ -86,6 +170,11 @@ export default function App(): JSX.Element {
             >
               打开项目
             </Button>
+            <Tooltip label={`主题：${settingsColorScheme ?? 'dark'}（点击切换）`}>
+              <ActionIcon variant="default" onClick={cycleColorScheme} data-no-drag>
+                {colorSchemeIcon}
+              </ActionIcon>
+            </Tooltip>
             <Tooltip label="关于">
               <ActionIcon
                 variant="default"

@@ -69,19 +69,33 @@ async function readProjectContext(projectRoot: string): Promise<{
 
 /* ---------- read an agent's system prompt from novel-craft/agents/<id>.md ---------- */
 
+/**
+ * Read an agent's system prompt. Resolution order:
+ *   1. customAgentsPath/<role>.md  (user override, optional)
+ *   2. novelCraftPath/agents/<role>.md  (default novel-craft repo)
+ * Lets users fork prompts without forking the whole novel-craft repo.
+ */
 async function readAgentPrompt(
   novelCraftPath: string,
-  role: AgentRole
+  role: AgentRole,
+  customAgentsPath?: string
 ): Promise<string> {
-  const path = join(novelCraftPath, 'agents', `${role}.md`);
-  if (!existsSync(path)) return '';
-  try {
-    const raw = await readFile(path, 'utf-8');
-    // Strip frontmatter (--- ... ---)
-    return raw.replace(/^---[\s\S]*?---\s*/, '').trim();
-  } catch {
-    return '';
+  const candidates: string[] = [];
+  if (customAgentsPath && customAgentsPath.trim()) {
+    candidates.push(join(customAgentsPath, `${role}.md`));
   }
+  candidates.push(join(novelCraftPath, 'agents', `${role}.md`));
+
+  for (const path of candidates) {
+    if (!existsSync(path)) continue;
+    try {
+      const raw = await readFile(path, 'utf-8');
+      return raw.replace(/^---[\s\S]*?---\s*/, '').trim();
+    } catch {
+      // try next candidate
+    }
+  }
+  return '';
 }
 
 /* ---------- format chapter content for prompt ---------- */
@@ -117,6 +131,7 @@ interface BuildPromptArgs {
   role: AgentRole;
   config: WorkflowConfig;
   novelCraftPath: string;
+  customAgentsPath?: string;
   projectRoot: string;
   chapterPaths: string[];
   /** 用户在 UI 里补充的故事简述（项目字段稀疏时用）。 */
@@ -128,7 +143,7 @@ async function buildSystemPrompt(args: BuildPromptArgs): Promise<{
   user: string;
 }> {
   const ctx = await readProjectContext(args.projectRoot);
-  const agentPrompt = await readAgentPrompt(args.novelCraftPath, args.role);
+  const agentPrompt = await readAgentPrompt(args.novelCraftPath, args.role, args.customAgentsPath);
   const chapters = await readChapters(args.chapterPaths);
 
   const actionDirective = describeAction(args.config);
@@ -276,6 +291,7 @@ export function registerWorkflowIpc(getWindow: () => BrowserWindow | null): void
         role,
         config: req.config,
         novelCraftPath: req.novelCraftPath,
+        customAgentsPath: req.customAgentsPath,
         projectRoot: req.projectRoot,
         chapterPaths: req.chapterPaths,
         extraContext: req.extraContext

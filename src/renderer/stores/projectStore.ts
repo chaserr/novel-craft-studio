@@ -3,39 +3,42 @@ import type { NewProjectFields, ProjectFileEntry, ProjectMeta } from '../../shar
 import { api } from '../lib/ipc';
 import { detectGenericSparse, detectRtkSparse } from '../lib/rtk';
 
-interface ProjectState {
-  meta: ProjectMeta | null;
+interface OpenedProject {
+  id: string;
+  meta: ProjectMeta;
   files: ProjectFileEntry[];
-  /** The chapter user is currently editing / "在看" (single). */
   activeFilePath: string | null;
   activeFileContent: string;
   activeFileDirty: boolean;
-  /**
-   * Chapter file paths the user has multi-selected (cmd+click).
-   * Drives WorkflowRange 'multi'. The activeFilePath is always implicitly
-   * the primary chapter for range='chapter'.
-   */
   selectedChapterPaths: string[];
-
-  /**
-   * RTK.md 是否"用户什么都没填" — 是的话，让 AI 起任何稿都没意义，
-   * 必须先让用户在引导页填一段"故事简述"。
-   * openProject / createProject / refreshFiles 时自动重算。
-   */
   rtkSparse: boolean;
-  /** 小说大纲.md 是否为空骨架。决定引导页 5 步清单里这一步是否打勾。 */
   outlineSparse: boolean;
-  /** 章节大纲.md 是否为空骨架。 */
   chapterOutlineSparse: boolean;
-  /**
-   * 用户在引导页填的「故事简述」。RTK 稀疏时是强制必填项，会被注入到
-   * 每个 workflow 的高优先级 user message 里。跟随项目，切项目时清空。
-   */
   extraContext: string;
+}
+
+interface ProjectState {
+  opened: OpenedProject[];
+  activeId: string | null;
+
+  meta: ProjectMeta | null;
+  files: ProjectFileEntry[];
+  activeFilePath: string | null;
+  activeFileContent: string;
+  activeFileDirty: boolean;
+  selectedChapterPaths: string[];
+  rtkSparse: boolean;
+  outlineSparse: boolean;
+  chapterOutlineSparse: boolean;
+  extraContext: string;
+
   setExtraContext: (s: string) => void;
 
   openProject: (root: string) => Promise<void>;
   createProject: (fields: NewProjectFields, target: string) => Promise<void>;
+  setActive: (id: string) => void;
+  closeProjectById: (id: string) => void;
+
   openFile: (path: string) => Promise<void>;
   toggleChapterSelected: (path: string) => void;
   clearChapterSelection: () => void;
@@ -43,7 +46,6 @@ interface ProjectState {
   saveActiveFile: () => Promise<void>;
   reloadActiveFile: () => Promise<void>;
   refreshFiles: () => Promise<void>;
-  /** 清空当前在编辑的文件（不退项目）。删除/重命名时用。 */
   clearActiveFile: () => void;
   closeProject: () => void;
 }
@@ -89,105 +91,20 @@ async function probeAllSparse(
   return { rtkSparse, outlineSparse, chapterOutlineSparse };
 }
 
-export const useProject = create<ProjectState>((set, get) => ({
-  meta: null,
-  files: [],
-  activeFilePath: null,
-  activeFileContent: '',
-  activeFileDirty: false,
-  selectedChapterPaths: [],
-  rtkSparse: false,
-  outlineSparse: true,
-  chapterOutlineSparse: true,
-  extraContext: '',
-
-  setExtraContext: (s) => set({ extraContext: s }),
-
-  openProject: async (root) => {
-    const { meta, files } = await api.project.open(root);
-    const sparse = await probeAllSparse(files);
-    set({
-      meta,
-      files,
-      activeFilePath: null,
-      activeFileContent: '',
-      activeFileDirty: false,
-      selectedChapterPaths: [],
-      ...sparse,
-      extraContext: ''
-    });
-  },
-
-  createProject: async (fields, target) => {
-    const { meta, files } = await api.project.create(fields, target);
-    const sparse = await probeAllSparse(files);
-    set({
-      meta,
-      files,
-      activeFilePath: null,
-      activeFileContent: '',
-      activeFileDirty: false,
-      selectedChapterPaths: [],
-      ...sparse,
-      extraContext: ''
-    });
-  },
-
-  openFile: async (path) => {
-    if (get().activeFileDirty && get().activeFilePath) {
-      await get().saveActiveFile();
-    }
-    const content = await api.files.read(path);
-    set({
-      activeFilePath: path,
-      activeFileContent: content,
-      activeFileDirty: false
-    });
-  },
-
-  toggleChapterSelected: (path) => {
-    const cur = get().selectedChapterPaths;
-    set({
-      selectedChapterPaths: cur.includes(path)
-        ? cur.filter((p) => p !== path)
-        : [...cur, path]
-    });
-  },
-
-  clearChapterSelection: () => set({ selectedChapterPaths: [] }),
-
-  setActiveContent: (s) => {
-    set({ activeFileContent: s, activeFileDirty: true });
-  },
-
-  saveActiveFile: async () => {
-    const p = get().activeFilePath;
-    if (!p) return;
-    await api.files.write(p, get().activeFileContent);
-    set({ activeFileDirty: false });
-  },
-
-  reloadActiveFile: async () => {
-    const p = get().activeFilePath;
-    if (!p) return;
-    const content = await api.files.read(p);
-    set({ activeFileContent: content, activeFileDirty: false });
-  },
-
-  refreshFiles: async () => {
-    const meta = get().meta;
-    if (!meta) return;
-    const { meta: newMeta, files } = await api.project.open(meta.rootPath);
-    const sparse = await probeAllSparse(files);
-    set({ meta: newMeta, files, ...sparse });
-  },
-
-  clearActiveFile: () => {
-    set({ activeFilePath: null, activeFileContent: '', activeFileDirty: false });
-  },
-
-  closeProject: () => {
-    set({
+function flatten(active: OpenedProject | null): {
+  meta: ProjectMeta | null;
+  files: ProjectFileEntry[];
+  activeFilePath: string | null;
+  activeFileContent: string;
+  activeFileDirty: boolean;
+  selectedChapterPaths: string[];
+  rtkSparse: boolean;
+  outlineSparse: boolean;
+  chapterOutlineSparse: boolean;
+  extraContext: string;
+} {
+  if (!active)
+    return {
       meta: null,
       files: [],
       activeFilePath: null,
@@ -198,6 +115,190 @@ export const useProject = create<ProjectState>((set, get) => ({
       outlineSparse: true,
       chapterOutlineSparse: true,
       extraContext: ''
+    };
+  return {
+    meta: active.meta,
+    files: active.files,
+    activeFilePath: active.activeFilePath,
+    activeFileContent: active.activeFileContent,
+    activeFileDirty: active.activeFileDirty,
+    selectedChapterPaths: active.selectedChapterPaths,
+    rtkSparse: active.rtkSparse,
+    outlineSparse: active.outlineSparse,
+    chapterOutlineSparse: active.chapterOutlineSparse,
+    extraContext: active.extraContext
+  };
+}
+
+function patchActive(
+  opened: OpenedProject[],
+  activeId: string | null,
+  patch: Partial<OpenedProject>
+): { opened: OpenedProject[]; activeId: string | null } & ReturnType<typeof flatten> {
+  if (!activeId) {
+    return { opened, activeId, ...flatten(null) };
+  }
+  const next = opened.map((p) => (p.id === activeId ? { ...p, ...patch } : p));
+  const active = next.find((p) => p.id === activeId) ?? null;
+  return { opened: next, activeId, ...flatten(active) };
+}
+
+function mergeOpened(
+  prev: OpenedProject[],
+  proj: OpenedProject
+): OpenedProject[] {
+  const filtered = prev.filter((p) => p.id !== proj.id);
+  return [...filtered, proj];
+}
+
+async function recordRecent(meta: ProjectMeta): Promise<void> {
+  try {
+    await api.settings.touchRecentProject(meta.rootPath, meta.bookTitle);
+  } catch {
+    /* recent tracking is best-effort */
+  }
+}
+
+export const useProject = create<ProjectState>((set, get) => ({
+  opened: [],
+  activeId: null,
+  ...flatten(null),
+
+  setExtraContext: (s) =>
+    set((state) => patchActive(state.opened, state.activeId, { extraContext: s })),
+
+  openProject: async (root) => {
+    const { meta, files } = await api.project.open(root);
+    const sparse = await probeAllSparse(files);
+    const proj: OpenedProject = {
+      id: meta.rootPath,
+      meta,
+      files,
+      activeFilePath: null,
+      activeFileContent: '',
+      activeFileDirty: false,
+      selectedChapterPaths: [],
+      ...sparse,
+      extraContext: ''
+    };
+    set((state) => {
+      const opened = mergeOpened(state.opened, proj);
+      return { opened, activeId: proj.id, ...flatten(proj) };
     });
+    void recordRecent(meta);
+  },
+
+  createProject: async (fields, target) => {
+    const { meta, files } = await api.project.create(fields, target);
+    const sparse = await probeAllSparse(files);
+    const proj: OpenedProject = {
+      id: meta.rootPath,
+      meta,
+      files,
+      activeFilePath: null,
+      activeFileContent: '',
+      activeFileDirty: false,
+      selectedChapterPaths: [],
+      ...sparse,
+      extraContext: ''
+    };
+    set((state) => {
+      const opened = mergeOpened(state.opened, proj);
+      return { opened, activeId: proj.id, ...flatten(proj) };
+    });
+    void recordRecent(meta);
+  },
+
+  setActive: (id) => {
+    set((state) => {
+      const target = state.opened.find((p) => p.id === id) ?? null;
+      return { opened: state.opened, activeId: target ? id : null, ...flatten(target) };
+    });
+  },
+
+  closeProjectById: (id) => {
+    set((state) => {
+      const opened = state.opened.filter((p) => p.id !== id);
+      const nextActiveId =
+        state.activeId === id ? (opened[opened.length - 1]?.id ?? null) : state.activeId;
+      const nextActive = opened.find((p) => p.id === nextActiveId) ?? null;
+      return { opened, activeId: nextActiveId, ...flatten(nextActive) };
+    });
+  },
+
+  openFile: async (path) => {
+    if (get().activeFileDirty && get().activeFilePath) {
+      await get().saveActiveFile();
+    }
+    const content = await api.files.read(path);
+    set((state) =>
+      patchActive(state.opened, state.activeId, {
+        activeFilePath: path,
+        activeFileContent: content,
+        activeFileDirty: false
+      })
+    );
+  },
+
+  toggleChapterSelected: (path) => {
+    const cur = get().selectedChapterPaths;
+    const next = cur.includes(path) ? cur.filter((p) => p !== path) : [...cur, path];
+    set((state) => patchActive(state.opened, state.activeId, { selectedChapterPaths: next }));
+  },
+
+  clearChapterSelection: () =>
+    set((state) => patchActive(state.opened, state.activeId, { selectedChapterPaths: [] })),
+
+  setActiveContent: (s) => {
+    set((state) =>
+      patchActive(state.opened, state.activeId, {
+        activeFileContent: s,
+        activeFileDirty: true
+      })
+    );
+  },
+
+  saveActiveFile: async () => {
+    const p = get().activeFilePath;
+    if (!p) return;
+    await api.files.write(p, get().activeFileContent);
+    set((state) => patchActive(state.opened, state.activeId, { activeFileDirty: false }));
+  },
+
+  reloadActiveFile: async () => {
+    const p = get().activeFilePath;
+    if (!p) return;
+    const content = await api.files.read(p);
+    set((state) =>
+      patchActive(state.opened, state.activeId, {
+        activeFileContent: content,
+        activeFileDirty: false
+      })
+    );
+  },
+
+  refreshFiles: async () => {
+    const meta = get().meta;
+    if (!meta) return;
+    const { meta: newMeta, files } = await api.project.open(meta.rootPath);
+    const sparse = await probeAllSparse(files);
+    set((state) =>
+      patchActive(state.opened, state.activeId, { meta: newMeta, files, ...sparse })
+    );
+  },
+
+  clearActiveFile: () => {
+    set((state) =>
+      patchActive(state.opened, state.activeId, {
+        activeFilePath: null,
+        activeFileContent: '',
+        activeFileDirty: false
+      })
+    );
+  },
+
+  closeProject: () => {
+    const id = get().activeId;
+    if (id) get().closeProjectById(id);
   }
 }));

@@ -27,8 +27,11 @@ import {
   IconUserHeart,
   IconPencil,
   IconPencilPlus,
-  IconSparkles
+  IconSparkles,
+  IconClock,
+  IconX
 } from '@tabler/icons-react';
+import { ActionIcon, Tooltip, UnstyledButton } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useSettings } from '../stores/settingsStore';
 import { useProject } from '../stores/projectStore';
@@ -213,6 +216,9 @@ export default function WelcomeView({
               </Group>
             </div>
           )}
+
+          {/* 最近打开 */}
+          <RecentProjectsCard readyToStart={readyToStart} />
 
           <Divider variant="dashed" />
 
@@ -673,4 +679,118 @@ function ProjectReadyView(): JSX.Element {
       </Box>
     </ScrollArea>
   );
+}
+
+function RecentProjectsCard({ readyToStart }: { readyToStart: boolean }): JSX.Element | null {
+  const recent = useSettings((s) => s.settings.recentProjects ?? []);
+  const openProject = useProject((s) => s.openProject);
+  const opened = useProject((s) => s.opened);
+  const loadSettings = useSettings((s) => s.load);
+
+  if (recent.length === 0) return null;
+
+  const openedIds = new Set(opened.map((p) => p.id));
+
+  const handleOpen = async (rootPath: string): Promise<void> => {
+    try {
+      await openProject(rootPath);
+      notifications.show({ message: '项目已打开', color: 'green' });
+    } catch (err) {
+      notifications.show({
+        title: '打开失败',
+        message: String(err),
+        color: 'red'
+      });
+    }
+  };
+
+  const handleRemove = async (rootPath: string): Promise<void> => {
+    await api.settings.removeRecentProject(rootPath);
+    await loadSettings();
+  };
+
+  return (
+    <div>
+      <Group gap="xs" mb="sm">
+        <IconClock size={14} />
+        <Text fw={600} size="md">
+          最近打开
+        </Text>
+        <Text size="xs" c="dimmed">
+          ({recent.length})
+        </Text>
+      </Group>
+      <Stack gap={4}>
+        {recent.slice(0, 8).map((r) => {
+          const isOpen = openedIds.has(r.rootPath);
+          return (
+            <UnstyledButton
+              key={r.rootPath}
+              onClick={() => void handleOpen(r.rootPath)}
+              disabled={!readyToStart}
+              style={{ width: '100%' }}
+            >
+              <Card
+                withBorder
+                padding="sm"
+                style={{ cursor: readyToStart ? 'pointer' : 'not-allowed' }}
+              >
+                <Group justify="space-between" wrap="nowrap" gap="sm">
+                  <Group gap="sm" wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+                    <ThemeIcon size="md" color="teal" variant="light" radius="md">
+                      <IconBook size={14} />
+                    </ThemeIcon>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <Group gap={6} wrap="nowrap">
+                        <Text fw={500} size="sm" truncate="end">
+                          {r.bookTitle || r.rootPath.split('/').pop()}
+                        </Text>
+                        {isOpen && (
+                          <Badge size="xs" color="indigo" variant="light">
+                            已打开
+                          </Badge>
+                        )}
+                      </Group>
+                      <Text size="xs" c="dimmed" truncate="end">
+                        {r.rootPath}
+                      </Text>
+                    </div>
+                  </Group>
+                  <Group gap={4} wrap="nowrap" style={{ flexShrink: 0 }}>
+                    <Text size="xs" c="dimmed">
+                      {formatRelativeTime(r.lastOpenedAt)}
+                    </Text>
+                    <Tooltip label="从列表移除（不删除文件）">
+                      <ActionIcon
+                        size="sm"
+                        variant="subtle"
+                        color="gray"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleRemove(r.rootPath);
+                        }}
+                      >
+                        <IconX size={12} />
+                      </ActionIcon>
+                    </Tooltip>
+                  </Group>
+                </Group>
+              </Card>
+            </UnstyledButton>
+          );
+        })}
+      </Stack>
+    </div>
+  );
+}
+
+function formatRelativeTime(ts: number): string {
+  const diff = Date.now() - ts;
+  const min = 60_000;
+  const hour = 60 * min;
+  const day = 24 * hour;
+  if (diff < hour) return `${Math.max(1, Math.floor(diff / min))} 分钟前`;
+  if (diff < day) return `${Math.floor(diff / hour)} 小时前`;
+  if (diff < 7 * day) return `${Math.floor(diff / day)} 天前`;
+  return new Date(ts).toLocaleDateString();
 }

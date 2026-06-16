@@ -21,15 +21,15 @@ body {
   -webkit-app-region: no-drag;
 }
 
-/* ----------------- Markdown 预览 ----------------- */
+/* ----------------- Markdown 预览（自适应 light/dark） ----------------- */
 .markdown-body {
-  color: var(--mantine-color-gray-2);
+  color: var(--mantine-color-text);
 }
 .markdown-body h1,
 .markdown-body h2,
 .markdown-body h3,
 .markdown-body h4 {
-  color: var(--mantine-color-gray-0);
+  color: light-dark(var(--mantine-color-dark-9), var(--mantine-color-gray-0));
   margin: 1.2em 0 0.5em;
   font-weight: 600;
 }
@@ -40,18 +40,18 @@ body {
   margin: 0 0 1em;
 }
 .markdown-body strong {
-  color: var(--mantine-color-gray-0);
+  color: light-dark(var(--mantine-color-dark-9), var(--mantine-color-gray-0));
   font-weight: 600;
 }
 .markdown-body em {
-  color: var(--mantine-color-gray-1);
+  color: light-dark(var(--mantine-color-dark-7), var(--mantine-color-gray-1));
 }
 .markdown-body blockquote {
   border-left: 3px solid var(--mantine-color-indigo-5);
   padding: 4px 0 4px 14px;
   margin: 1em 0;
-  color: var(--mantine-color-gray-4);
-  background: var(--mantine-color-dark-6);
+  color: light-dark(var(--mantine-color-dark-6), var(--mantine-color-gray-4));
+  background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6));
   border-radius: 0 4px 4px 0;
 }
 .markdown-body ul,
@@ -63,14 +63,14 @@ body {
   margin: 0.2em 0;
 }
 .markdown-body code {
-  background: var(--mantine-color-dark-5);
+  background: light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5));
   padding: 1px 5px;
   border-radius: 3px;
   font-size: 0.9em;
   font-family: var(--mantine-font-family-monospace);
 }
 .markdown-body pre {
-  background: var(--mantine-color-dark-8);
+  background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-8));
   padding: 12px 14px;
   border-radius: 6px;
   overflow-x: auto;
@@ -82,7 +82,7 @@ body {
 }
 .markdown-body hr {
   border: none;
-  border-top: 1px solid var(--mantine-color-dark-4);
+  border-top: 1px solid var(--mantine-color-default-border);
   margin: 1.5em 0;
 }
 .markdown-body table {
@@ -91,11 +91,11 @@ body {
 }
 .markdown-body th,
 .markdown-body td {
-  border: 1px solid var(--mantine-color-dark-4);
+  border: 1px solid var(--mantine-color-default-border);
   padding: 6px 10px;
 }
 .markdown-body th {
-  background: var(--mantine-color-dark-6);
+  background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6));
 }
 
 /* 手机预览专用：段落首行缩进，更接近小说阅读 App 的版式 */
