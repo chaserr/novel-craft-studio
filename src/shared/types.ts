@@ -119,12 +119,15 @@ export interface LlmStreamEvent {
 /* ------------------------------------------------------------------------ */
 
 export type WorkflowAction =
-  | 'write-next'      // 写下一章
-  | 'continue'        // 续写本章
-  | 'sync'            // 章末同步
-  | 'review'          // 多角色审稿
-  | 'polish'          // 去 AI 味润色
-  | 'free-chat';      // 自由询问（Tab 2 用）
+  | 'write-next'              // 写下一章
+  | 'continue'                // 续写本章
+  | 'sync'                    // 章末同步
+  | 'review'                  // 多角色审稿
+  | 'polish'                  // 去 AI 味润色
+  | 'draft-rtk'               // AI 起草 RTK
+  | 'draft-outline'           // AI 起草小说大纲
+  | 'draft-chapter-outline'   // AI 起草章节大纲（前 10 章）
+  | 'free-chat';              // 自由询问（Tab 2 用）
 
 /** All 12 novel-* agents from the novel-craft plugin. */
 export type AgentRole =

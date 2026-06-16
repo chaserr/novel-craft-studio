@@ -24,12 +24,15 @@ import {
   IconArrowRight,
   IconBook,
   IconUserHeart,
-  IconPencil
+  IconPencil,
+  IconSparkles
 } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
 import { useSettings } from '../stores/settingsStore';
 import { useProject } from '../stores/projectStore';
+import { useWorkflow } from '../stores/workflowStore';
 import { api } from '../lib/ipc';
-import type { ProviderId } from '../../shared/types';
+import type { ProviderId, WorkflowAction } from '../../shared/types';
 
 interface Props {
   openSettings: () => void;
@@ -306,11 +309,73 @@ function StepIcon({
   );
 }
 
+interface DraftStepRowProps {
+  n: number;
+  label: string;
+  desc: string;
+  onDraft: () => void;
+  onEdit: () => void;
+  running: boolean;
+}
+
+function DraftStepRow({
+  n,
+  label,
+  desc,
+  onDraft,
+  onEdit,
+  running
+}: DraftStepRowProps): JSX.Element {
+  return (
+    <Card withBorder padding="sm" radius="md">
+      <Group justify="space-between" wrap="nowrap" align="flex-start">
+        <Group gap="sm" wrap="nowrap" style={{ flex: 1 }}>
+          <Badge size="lg" variant="filled" color="indigo">
+            {n}
+          </Badge>
+          <div style={{ flex: 1 }}>
+            <Text size="sm" fw={600}>
+              {label}
+            </Text>
+            <Text size="xs" c="dimmed">
+              {desc}
+            </Text>
+          </div>
+        </Group>
+        <Group gap={6} wrap="nowrap">
+          <Button
+            size="xs"
+            leftSection={<IconSparkles size={12} />}
+            onClick={onDraft}
+            disabled={running}
+            variant="filled"
+          >
+            让 AI 起草
+          </Button>
+          <Button
+            size="xs"
+            variant="default"
+            leftSection={<IconPencil size={12} />}
+            onClick={onEdit}
+          >
+            手动编辑
+          </Button>
+        </Group>
+      </Group>
+    </Card>
+  );
+}
+
 /** 已打开项目但没选文件时显示。 */
 function ProjectReadyView(): JSX.Element {
   const meta = useProject((s) => s.meta);
   const files = useProject((s) => s.files);
   const openFile = useProject((s) => s.openFile);
+  const novelCraftPath = useSettings((s) => s.settings.novelCraftPath);
+  const setAction = useWorkflow((s) => s.setAction);
+  const setRange = useWorkflow((s) => s.setRange);
+  const runWorkflow = useWorkflow((s) => s.run);
+  const running = useWorkflow((s) => s.running);
   if (!meta) return <Box />;
 
   const chapters = files.filter((f) => f.category === 'chapter' && !f.isDir);
@@ -320,50 +385,78 @@ function ProjectReadyView(): JSX.Element {
   const outline = files.find((f) => f.category === 'outline');
   const chapterOutline = files.find((f) => f.category === 'chapter-outline');
 
+  const draftAction = (
+    action: WorkflowAction,
+    label: string
+  ): (() => void) => {
+    return () => {
+      if (running) {
+        notifications.show({
+          message: '当前已有 workflow 在跑，请先停止',
+          color: 'yellow'
+        });
+        return;
+      }
+      setAction(action);
+      setRange({ type: 'book' }); // draft actions 不依赖具体章节范围
+      void runWorkflow([], meta.rootPath, novelCraftPath);
+      notifications.show({
+        message: `已启动「${label}」。中栏会自动切到 Workflow Tab 看流式输出，完成后文件被覆盖更新。`,
+        color: 'indigo'
+      });
+    };
+  };
+
   // Determine recommended next step
   let recommendation: JSX.Element;
   if (writtenCount === 0 && totalChapters === 0) {
-    // 全新项目
+    // 全新项目 — 引导用 AI 起草，并附手动编辑兜底
     recommendation = (
-      <Stack gap="xs">
-        <Text fw={600}>📌 推荐第一步：补全资料</Text>
-        <Text size="sm" c="dimmed">
-          这是个全新项目，先把基础资料填好，LLM 才能写出符合你气质的章节：
-        </Text>
-        <List size="sm" spacing={4}>
-          <List.Item>
-            <a
-              onClick={() => rtk && void openFile(rtk.path)}
-              style={{ cursor: 'pointer', color: 'var(--mantine-color-indigo-4)' }}
-            >
-              <b>RTK.md</b>
-            </a>
-            ：复核题材气质、文风约束（已根据你填的字段自动生成）
-          </List.Item>
-          <List.Item>
-            <a
-              onClick={() => outline && void openFile(outline.path)}
-              style={{ cursor: 'pointer', color: 'var(--mantine-color-indigo-4)' }}
-            >
-              <b>小说大纲.md</b>
-            </a>
-            ：补全四幕结构、主线节点
-          </List.Item>
-          <List.Item>
-            <a
-              onClick={() =>
-                chapterOutline && void openFile(chapterOutline.path)
-              }
-              style={{ cursor: 'pointer', color: 'var(--mantine-color-indigo-4)' }}
-            >
-              <b>章节大纲.md</b>
-            </a>
-            ：补前 3-5 章节点
-          </List.Item>
-          <List.Item>
-            然后右栏切"工作流" → "写下一章" → 执行
-          </List.Item>
-        </List>
+      <Stack gap="md">
+        <div>
+          <Text fw={600} mb={4}>
+            📌 推荐第一步：让 AI 起草骨架，你来定稿
+          </Text>
+          <Text size="sm" c="dimmed">
+            这是个全新项目。LLM 会基于你新建时填的字段（书名/题材/读者/气质/主线人物）
+            补全 3 份核心资料。每一步生成后你都能在中栏编辑改写。
+          </Text>
+        </div>
+
+        <Stack gap={8}>
+          <DraftStepRow
+            n={1}
+            label="RTK.md"
+            desc="项目级写作规则：题材气质、文风约束、套话黑名单。所有 agent 开工前都会读这里。"
+            onDraft={draftAction('draft-rtk', '起草 RTK.md')}
+            onEdit={() => rtk && void openFile(rtk.path)}
+            running={running}
+          />
+          <DraftStepRow
+            n={2}
+            label="小说大纲.md"
+            desc="四幕结构、主线节点、情绪曲线、大伏笔。LLM 会基于 RTK 输出完整草案。"
+            onDraft={draftAction('draft-outline', '起草小说大纲')}
+            onEdit={() => outline && void openFile(outline.path)}
+            running={running}
+          />
+          <DraftStepRow
+            n={3}
+            label="章节大纲.md（前 10 章）"
+            desc="逐章节点、场景、关系变化、章末结构。LLM 会基于小说大纲输出前 10 章草案。"
+            onDraft={draftAction('draft-chapter-outline', '起草章节大纲')}
+            onEdit={() => chapterOutline && void openFile(chapterOutline.path)}
+            running={running}
+          />
+        </Stack>
+
+        <Alert color="indigo" variant="light" icon={<IconAlertCircle size={14} />}>
+          <Text size="xs">
+            <b>建议节奏</b>：每起草一份就在中栏编辑改一改（LLM 不可能比你更懂你的故事）。
+            三份资料都定稿后，再到右栏 → "写下一章" → 执行。
+            如果对 LLM 起草不满意，可以多按几次"让 AI 起草"重新生成。
+          </Text>
+        </Alert>
       </Stack>
     );
   } else if (writtenCount === 0 && totalChapters > 0) {

@@ -53,6 +53,9 @@ const DEFAULT_ROLES_BY_ACTION: Record<WorkflowAction, AgentRole[]> = {
     'novel-reader'
   ],
   polish: ['novel-polisher'],
+  'draft-rtk': ['novel-architect'],
+  'draft-outline': ['novel-architect'],
+  'draft-chapter-outline': ['novel-architect'],
   'free-chat': []
 };
 

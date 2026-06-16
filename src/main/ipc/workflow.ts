@@ -192,6 +192,36 @@ function describeAction(config: WorkflowConfig): string {
         '不要修改情节事实、人物关系、伏笔走向。' +
         '改动量 > 30% 的段落不要给修改版，标"建议作者重写"。'
       );
+    case 'draft-rtk':
+      return (
+        '基于项目已有的 RTK.md 框架（在用户消息里）和新建项目时填写的字段，**补全所有占位符 + 完善细节**：\n' +
+        '- §1 项目目标：让核心气质的描述更具体\n' +
+        '- §4.3 套话黑名单：按题材添加 5-10 个针对性短语\n' +
+        '- §5 文风要求：把"细腻但不滥情"等抽象要求落到 3-5 条具体可检查的规则\n' +
+        '- §5.3 感情线要求（如适用）：按题材定制（校园青春 vs 都市悬疑 vs 武侠等差异巨大）\n' +
+        '- §5.4 时代/世界线要求：按题材给出具体的"通过哪类细节体现"\n\n' +
+        '**直接输出完整 RTK.md 内容**（覆盖式）。保持现有 markdown 结构和 § 编号不变。不要任何解释。'
+      );
+    case 'draft-outline':
+      return (
+        '基于项目 RTK.md（题材、读者、核心气质、主线人物、篇幅预期），起草《小说大纲.md》：\n' +
+        '- 一句话故事（核心冲突）\n' +
+        '- 四幕结构：每幕的功能、关键节点、结尾点\n' +
+        '- 情绪曲线草图（用 ↑↓→⚡💧🔥 标注每幕的情绪基调）\n' +
+        '- 3-5 个对全书有结构意义的大伏笔\n' +
+        '- 2-3 条主要支线\n' +
+        '- 不可触碰的禁区（基于 RTK 红线）\n\n' +
+        '**直接输出完整 markdown 内容**（覆盖式）。要具体，不要"待补"占位符。'
+      );
+    case 'draft-chapter-outline':
+      return (
+        '基于已有的小说大纲，起草前 10 章的详细《章节大纲.md》：\n' +
+        '- 每章用统一格式：位置（哪幕）/ 情绪基调 / 字数预期 / 核心功能 / 主要节点（2-3 个）/ 场景 / 关系变化点 / 人物内心变化点 / 本章埋伏笔 / 本章回收伏笔 / 章尾结构 / 章尾钩子\n' +
+        '- 章尾结构必须多样化（未完动作 / 物件落定 / 跨场景叠加 / 群消息切断 / 对话未完 / 未发生的事 等，不可连续同款）\n' +
+        '- 第 1-3 章是黄金三章：每章都要有强钩子\n' +
+        '- 字数预期按 RTK 的写作平台调整\n\n' +
+        '**直接输出完整 markdown 内容**（覆盖式）。'
+      );
     case 'free-chat':
       return '与作者自由对话，回答关于这本小说的边角问题。';
   }
@@ -343,12 +373,37 @@ async function persistWorkflowOutput(args: PersistArgs): Promise<void> {
     case 'review':
       await persistReviewReport(args);
       break;
+    case 'draft-rtk':
+      await persistDraftToFile(args, 'RTK.md');
+      break;
+    case 'draft-outline':
+      await persistDraftToFile(args, '小说大纲.md');
+      break;
+    case 'draft-chapter-outline':
+      await persistDraftToFile(args, '章节大纲.md');
+      break;
     case 'sync':
     case 'polish':
     case 'free-chat':
       // These actions present results in UI for user accept/reject; no auto-write.
       break;
   }
+}
+
+/** Overwrite a project-root file with the LLM output (with a one-line preamble). */
+async function persistDraftToFile(
+  args: PersistArgs,
+  relativePath: string
+): Promise<void> {
+  const text = args.subtasks[0]?.text;
+  if (!text) return;
+  const target = join(args.projectRoot, relativePath);
+  // Strip leading "```markdown" / "```" code fence if model wrapped output
+  const cleaned = text
+    .replace(/^```(?:markdown|md)?\s*\n/, '')
+    .replace(/\n```\s*$/, '')
+    .trim();
+  await writeFile(target, cleaned + '\n', 'utf-8');
 }
 
 /** Read book title and detect next unwritten chapter number from existing files. */
