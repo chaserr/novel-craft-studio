@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { AppShell, Group, Title, Button, ActionIcon, Tooltip, Badge } from '@mantine/core';
-import { IconSettings, IconFolderOpen, IconFilePlus } from '@tabler/icons-react';
+import { AppShell, Group, Title, Button, ActionIcon, Tooltip, Badge, Tabs, Box } from '@mantine/core';
+import { IconSettings, IconFolderOpen, IconFilePlus, IconLayoutDashboard, IconMessage } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useSettings } from './stores/settingsStore';
 import { useProject } from './stores/projectStore';
 import ProjectSidebar from './components/ProjectSidebar';
-import ChapterEditor from './components/ChapterEditor';
+import CenterPane from './components/CenterPane';
+import WorkflowPanel from './components/WorkflowPanel';
 import ChatPanel from './components/ChatPanel';
 import SettingsModal from './components/SettingsModal';
 import NewProjectModal from './components/NewProjectModal';
@@ -48,7 +49,12 @@ export default function App(): JSX.Element {
   };
 
   return (
-    <AppShell header={{ height: 48 }} navbar={{ width: 280, breakpoint: 'sm' }} aside={{ width: 420, breakpoint: 'sm' }} padding={0}>
+    <AppShell
+      header={{ height: 48 }}
+      navbar={{ width: 260, breakpoint: 'sm' }}
+      aside={{ width: 360, breakpoint: 'sm' }}
+      padding={0}
+    >
       <AppShell.Header className="app-titlebar">
         <Group justify="space-between" h="100%" px="md" wrap="nowrap">
           <Group gap="xs" pl={isMac ? 60 : 0}>
@@ -96,11 +102,34 @@ export default function App(): JSX.Element {
       </AppShell.Navbar>
 
       <AppShell.Aside p={0}>
-        <ChatPanel />
+        <Tabs
+          defaultValue="workflow"
+          keepMounted
+          style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+        >
+          <Tabs.List>
+            <Tabs.Tab value="workflow" leftSection={<IconLayoutDashboard size={14} />}>
+              工作流
+            </Tabs.Tab>
+            <Tabs.Tab value="chat" leftSection={<IconMessage size={14} />}>
+              自由询问
+            </Tabs.Tab>
+          </Tabs.List>
+          <Tabs.Panel value="workflow" style={{ flex: 1, minHeight: 0 }}>
+            <Box h="100%">
+              <WorkflowPanel />
+            </Box>
+          </Tabs.Panel>
+          <Tabs.Panel value="chat" style={{ flex: 1, minHeight: 0 }}>
+            <Box h="100%">
+              <ChatPanel />
+            </Box>
+          </Tabs.Panel>
+        </Tabs>
       </AppShell.Aside>
 
       <AppShell.Main style={{ height: 'calc(100vh - 48px)' }}>
-        <ChapterEditor />
+        <CenterPane />
       </AppShell.Main>
 
       <SettingsModal opened={settingsOpen} onClose={() => setSettingsOpen(false)} />

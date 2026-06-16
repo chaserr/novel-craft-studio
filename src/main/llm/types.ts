@@ -1,7 +1,8 @@
 import type { ChatMessage, ProviderId } from '../../shared/types';
+import type { ResolvedToken } from '../ipc/cli-token';
 
 export interface StreamChatParams {
-  apiKey: string;
+  token: ResolvedToken;
   model: string;
   systemPrompt: string;
   messages: ChatMessage[];

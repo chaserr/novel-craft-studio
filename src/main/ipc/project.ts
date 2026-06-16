@@ -5,7 +5,8 @@ import { join, basename, relative } from 'node:path';
 import type {
   NewProjectFields,
   ProjectFileEntry,
-  ProjectMeta
+  ProjectMeta,
+  Volume
 } from '../../shared/types';
 import { getSettings } from './keychain';
 
@@ -30,6 +31,8 @@ function categorize(name: string, isDir: boolean): ProjectFileEntry['category'] 
 
 /* ---------- scan a project dir recursively (1 level only — chapters are flat) ---------- */
 
+const CHAPTER_NUM_RE = /-第(\d+)章-/;
+
 async function scanProject(rootPath: string): Promise<ProjectFileEntry[]> {
   const entries: ProjectFileEntry[] = [];
 
@@ -40,19 +43,95 @@ async function scanProject(rootPath: string): Promise<ProjectFileEntry[]> {
       const abs = join(dir, name);
       const s = await stat(abs);
       const isDir = s.isDirectory();
-      entries.push({
+      const cat = categorize(name, isDir);
+      const entry: ProjectFileEntry = {
         path: abs,
         relPath: relative(rootPath, abs),
         name,
-        category: categorize(name, isDir),
+        category: cat,
         isDir
-      });
+      };
+      if (cat === 'chapter') {
+        const m = CHAPTER_NUM_RE.exec(name);
+        if (m) entry.chapterNumber = parseInt(m[1], 10);
+        try {
+          const body = await readFile(abs, 'utf-8');
+          // 章节文件如果只有少量内容（< 200 字符）视为骨架未写
+          entry.hasContent = body.replace(/^\s+|\s+$/g, '').length > 200;
+        } catch {
+          entry.hasContent = false;
+        }
+      }
+      entries.push(entry);
       if (isDir && depth < 2) await walk(abs, depth + 1);
     }
   }
 
   await walk(rootPath, 0);
   return entries;
+}
+
+/* ---------- parse volume structure from 章节大纲.md ---------- */
+
+const VOLUME_HEADING_RE = /^##\s+(第[一二三四五六七八九十百千\d]+卷[^\n]*)$/m;
+const VOLUME_HEADING_GLOBAL = /^##\s+(第[一二三四五六七八九十百千\d]+卷[^\n]*)$/gm;
+
+async function parseVolumes(files: ProjectFileEntry[]): Promise<Volume[]> {
+  const outlineFile = files.find((f) => f.category === 'chapter-outline');
+  if (!outlineFile) return defaultSingleVolume(files);
+
+  let content: string;
+  try {
+    content = await readFile(outlineFile.path, 'utf-8');
+  } catch {
+    return defaultSingleVolume(files);
+  }
+
+  const headings: { title: string; offset: number }[] = [];
+  let match;
+  const re = new RegExp(VOLUME_HEADING_GLOBAL);
+  while ((match = re.exec(content)) !== null) {
+    headings.push({ title: match[1].trim(), offset: match.index });
+  }
+  if (headings.length === 0) return defaultSingleVolume(files);
+
+  // For each volume heading, find chapter numbers mentioned in its section.
+  const chapterRe = /第(\d+)章/g;
+  const volumes: Volume[] = [];
+  for (let i = 0; i < headings.length; i++) {
+    const start = headings[i].offset;
+    const end = i + 1 < headings.length ? headings[i + 1].offset : content.length;
+    const section = content.slice(start, end);
+    const nums = new Set<number>();
+    let cm;
+    const subRe = new RegExp(chapterRe);
+    while ((cm = subRe.exec(section)) !== null) nums.add(parseInt(cm[1], 10));
+    if (nums.size === 0) continue;
+    const sorted = [...nums].sort((a, b) => a - b);
+    volumes.push({
+      index: i + 1,
+      title: headings[i].title,
+      startChapter: sorted[0],
+      endChapter: sorted[sorted.length - 1]
+    });
+  }
+
+  return volumes.length > 0 ? volumes : defaultSingleVolume(files);
+}
+
+function defaultSingleVolume(files: ProjectFileEntry[]): Volume[] {
+  const chaps = files
+    .filter((f) => f.category === 'chapter' && f.chapterNumber)
+    .map((f) => f.chapterNumber!);
+  if (chaps.length === 0) return [];
+  return [
+    {
+      index: 1,
+      title: '全书',
+      startChapter: Math.min(...chaps),
+      endChapter: Math.max(...chaps)
+    }
+  ];
 }
 
 /* ---------- detect book title from chapter naming pattern or RTK.md ---------- */
@@ -162,10 +241,12 @@ export function registerProjectIpc(): void {
 
   ipcMain.handle('project:open', async (_e, rootPath: string) => {
     const files = await scanProject(rootPath);
+    const volumes = await parseVolumes(files);
     const meta: ProjectMeta = {
       rootPath,
       bookTitle: detectBookTitle(files, rootPath),
-      hasRtk: files.some((f) => f.category === 'rtk')
+      hasRtk: files.some((f) => f.category === 'rtk'),
+      volumes
     };
     return { meta, files };
   });
@@ -181,10 +262,12 @@ export function registerProjectIpc(): void {
       }
       await copyTemplates(settings.novelCraftPath, targetDir, fields);
       const files = await scanProject(targetDir);
+      const volumes = await parseVolumes(files);
       const meta: ProjectMeta = {
         rootPath: targetDir,
         bookTitle: fields.bookTitle,
-        hasRtk: files.some((f) => f.category === 'rtk')
+        hasRtk: files.some((f) => f.category === 'rtk'),
+        volumes
       };
       return { meta, files };
     }

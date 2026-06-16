@@ -18,9 +18,10 @@ const initial: AppSettings = {
   activeProvider: 'deepseek',
   models: {
     openai: 'gpt-4o',
-    anthropic: 'claude-opus-4-5-20251101',
+    anthropic: 'claude-sonnet-4-5',
     deepseek: 'deepseek-chat'
-  }
+  },
+  preferredAuth: {}
 };
 
 export const useSettings = create<SettingsState>((set, get) => ({

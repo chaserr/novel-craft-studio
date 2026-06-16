@@ -8,7 +8,7 @@ export const deepseekAdapter: ProviderAdapter = {
 
   async streamChat(p: StreamChatParams): Promise<void> {
     const client = new OpenAI({
-      apiKey: p.apiKey,
+      apiKey: p.token.accessToken,
       baseURL: 'https://api.deepseek.com'
     });
     try {

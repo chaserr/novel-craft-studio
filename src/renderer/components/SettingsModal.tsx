@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Modal,
   Stack,
@@ -8,9 +8,12 @@ import {
   Group,
   Text,
   Divider,
-  Tabs
+  Tabs,
+  Badge,
+  Box,
+  Alert
 } from '@mantine/core';
-import { IconDownload } from '@tabler/icons-react';
+import { IconDownload, IconLogin2, IconAlertCircle } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useSettings } from '../stores/settingsStore';
 import type { ProviderId } from '../../shared/types';
@@ -27,13 +30,23 @@ const PROVIDER_LABELS: Record<ProviderId, string> = {
   openai: 'OpenAI'
 };
 
-const PROVIDER_HELP: Record<ProviderId, string> = {
-  deepseek:
-    '⭐ 推荐首选。从 https://platform.deepseek.com/api_keys 创建 API key。中文写作能力强，价格便宜（充值 5 元 ≈ 几十万 token），扫码即可注册。',
+const PROVIDER_HELP_OAUTH: Record<ProviderId, string> = {
+  deepseek: '',
   anthropic:
-    '从 https://console.anthropic.com/settings/keys 创建 API key。注意：与 Claude.ai 订阅是分开计费的两个账户。',
+    '推荐用 Claude Pro/Max 订阅登录（点"用 Claude 登录"，弹出浏览器走 OAuth）。' +
+    '已用 Claude Code CLI 登录过的会自动复用。',
   openai:
-    '从 https://platform.openai.com/api-keys 创建 API key。注意：与 ChatGPT Plus 订阅是分开计费的两个账户。'
+    '推荐用 ChatGPT Plus/Pro 订阅登录（点"用 ChatGPT 登录"）。' +
+    '已用 Codex CLI 登录过的会自动复用。'
+};
+
+const PROVIDER_HELP_APIKEY: Record<ProviderId, string> = {
+  deepseek:
+    '⭐ 推荐首选。从 https://platform.deepseek.com/api_keys 创建 API key。中文写作能力强，价格便宜（充值 5 元 ≈ 几十万 token）。',
+  anthropic:
+    '如不想用 OAuth，可从 https://console.anthropic.com/settings/keys 创建独立 API key（与 Claude.ai 订阅是两套账户）。',
+  openai:
+    '如不想用 OAuth，可从 https://platform.openai.com/api-keys 创建独立 API key（与 ChatGPT 订阅是两套账户）。'
 };
 
 export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
@@ -44,18 +57,34 @@ export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
 
   const [path, setLocalPath] = useState(novelCraftPath);
   const [downloading, setDownloading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<ProviderId | null>(null);
+  const [authStatus, setAuthStatus] = useState<Record<ProviderId, { strategy: string; label: string }>>({
+    openai: { strategy: 'none', label: '未配置' },
+    anthropic: { strategy: 'none', label: '未配置' },
+    deepseek: { strategy: 'none', label: '未配置' }
+  });
   const [keys, setKeys] = useState<Record<ProviderId, string>>({
     openai: '',
     anthropic: '',
     deepseek: ''
   });
 
+  const refreshStatus = useCallback(async (): Promise<void> => {
+    const [o, a, d] = await Promise.all([
+      api.llm.probeAuth('openai'),
+      api.llm.probeAuth('anthropic'),
+      api.llm.probeAuth('deepseek')
+    ]);
+    setAuthStatus({ openai: o, anthropic: a, deepseek: d });
+  }, []);
+
   useEffect(() => {
     if (opened) {
       setLocalPath(novelCraftPath);
       setKeys({ openai: '', anthropic: '', deepseek: '' });
+      void refreshStatus();
     }
-  }, [opened, novelCraftPath]);
+  }, [opened, novelCraftPath, refreshStatus]);
 
   const pickPath = async (): Promise<void> => {
     const dir = await api.project.pickDirectory();
@@ -85,6 +114,29 @@ export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
     }
   };
 
+  const startOauth = async (p: ProviderId): Promise<void> => {
+    setOauthLoading(p);
+    try {
+      await api.llm.oauthLogin(p);
+      await refreshStatus();
+      await useSettings.getState().load();
+      notifications.show({
+        title: '登录成功',
+        message: `${PROVIDER_LABELS[p]} OAuth 完成`,
+        color: 'green'
+      });
+    } catch (err) {
+      notifications.show({
+        title: '登录失败',
+        message: err instanceof Error ? err.message : String(err),
+        color: 'red',
+        autoClose: false
+      });
+    } finally {
+      setOauthLoading(null);
+    }
+  };
+
   const handleSave = async (): Promise<void> => {
     await setPath(path.trim());
     for (const p of Object.keys(keys) as ProviderId[]) {
@@ -95,22 +147,21 @@ export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title="设置" size="lg" centered>
+    <Modal opened={opened} onClose={onClose} title="设置" size="xl" centered>
       <Stack gap="md">
+        {/* novel-craft 路径 */}
         <div>
           <Text size="sm" fw={500} mb={4}>
             novel-craft 仓库路径
           </Text>
           <Text size="xs" c="dimmed" mb={6}>
-            新建项目时会从这里的 templates 目录读取小说模板（RTK / 大纲 / 伏笔清单 / 人物档案等）。
-            <br />
-            <b>首次使用建议点"自动下载"</b>——会自动 git clone 到系统目录。也可以"选择…"指定本地已有的 clone。
+            新建项目时从这里的 templates 读取小说模板。建议点"自动下载"。
           </Text>
           <Group gap="xs">
             <TextInput
               value={path}
               onChange={(e) => setLocalPath(e.currentTarget.value)}
-              placeholder="点右边自动下载，或选择本地已 clone 的 novel-craft 仓库"
+              placeholder="点右边自动下载，或选择本地 clone 的 novel-craft 仓库"
               style={{ flex: 1 }}
             />
             <Button
@@ -130,25 +181,53 @@ export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
         <Divider />
 
         <Text size="sm" fw={500}>
-          API Keys
+          LLM 登录
         </Text>
-        <Text size="xs" c="dimmed">
-          API key 通过系统 keychain 加密存储。留空表示不修改已有的 key。
-        </Text>
+        <Alert variant="light" color="blue" icon={<IconAlertCircle size={14} />}>
+          <Text size="xs">
+            <b>三层兜底</b>：本机 CLI token (最稳) → 自实现 OAuth (灰色地带) → 手填 API key (永远兜底)。
+            DeepSeek 没有 OAuth，只走 API key。
+          </Text>
+        </Alert>
 
-        <Tabs defaultValue="deepseek">
+        <Tabs defaultValue="anthropic">
           <Tabs.List>
-            {(Object.keys(PROVIDER_LABELS) as ProviderId[]).map((p) => (
-              <Tabs.Tab key={p} value={p}>
-                {PROVIDER_LABELS[p]} {hasApiKey[p] ? '✓' : ''}
-              </Tabs.Tab>
-            ))}
+            {(Object.keys(PROVIDER_LABELS) as ProviderId[]).map((p) => {
+              const st = authStatus[p];
+              return (
+                <Tabs.Tab key={p} value={p}>
+                  {PROVIDER_LABELS[p]}{' '}
+                  <StatusBadge strategy={st.strategy} />
+                </Tabs.Tab>
+              );
+            })}
           </Tabs.List>
           {(Object.keys(PROVIDER_LABELS) as ProviderId[]).map((p) => (
             <Tabs.Panel key={p} value={p} pt="md">
-              <Stack gap="xs">
+              <Stack gap="sm">
+                <Box>
+                  <Text size="xs" c="dimmed">
+                    当前状态：<b>{authStatus[p].label}</b>
+                  </Text>
+                </Box>
+
+                {p !== 'deepseek' && (
+                  <>
+                    <Text size="xs">{PROVIDER_HELP_OAUTH[p]}</Text>
+                    <Button
+                      leftSection={<IconLogin2 size={14} />}
+                      variant="filled"
+                      onClick={() => void startOauth(p)}
+                      loading={oauthLoading === p}
+                    >
+                      用 {PROVIDER_LABELS[p]} 登录（OAuth）
+                    </Button>
+                    <Divider variant="dashed" label="或" labelPosition="center" />
+                  </>
+                )}
+
                 <Text size="xs" c="dimmed">
-                  {PROVIDER_HELP[p]}
+                  {PROVIDER_HELP_APIKEY[p]}
                 </Text>
                 <PasswordInput
                   value={keys[p]}
@@ -167,6 +246,7 @@ export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
                     onClick={async () => {
                       await api.settings.deleteApiKey(p);
                       await useSettings.getState().load();
+                      await refreshStatus();
                       notifications.show({
                         message: `已删除 ${PROVIDER_LABELS[p]} 的 API key`
                       });
@@ -189,4 +269,10 @@ export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
       </Stack>
     </Modal>
   );
+}
+
+function StatusBadge({ strategy }: { strategy: string }): JSX.Element {
+  if (strategy === 'cli') return <Badge size="xs" color="green">CLI</Badge>;
+  if (strategy === 'apikey') return <Badge size="xs" color="blue">key</Badge>;
+  return <Badge size="xs" color="gray">未配置</Badge>;
 }

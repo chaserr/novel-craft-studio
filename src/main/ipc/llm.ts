@@ -2,6 +2,9 @@ import { ipcMain, BrowserWindow } from 'electron';
 import type { ChatMessage, LlmStreamEvent, ProviderId } from '../../shared/types';
 import { getAdapter } from '../llm/registry';
 import { getApiKey } from './keychain';
+import { resolveToken, probeAuthStatus } from './cli-token';
+import { loginClaudeViaBrowser } from './oauth-claude';
+import { loginChatGPTViaBrowser } from './oauth-chatgpt';
 
 const activeRequests = new Map<string, AbortController>();
 
@@ -18,16 +21,18 @@ export function registerLlmIpc(getWindow: () => BrowserWindow | null): void {
         messages: ChatMessage[];
       }
     ) => {
-      const apiKey = await getApiKey(req.provider);
       const send = (e: LlmStreamEvent): void => {
         getWindow()?.webContents.send('llm:event', e);
       };
 
-      if (!apiKey) {
+      const token = await resolveToken(req.provider, () => getApiKey(req.provider));
+      if (!token) {
         send({
           requestId: req.requestId,
           type: 'error',
-          message: `未配置 ${req.provider} 的 API key，请在 Settings 中填写。`
+          message:
+            `未找到 ${req.provider} 的可用凭证。请：` +
+            `(1) 用对应 CLI (codex/claude) 登录；(2) 在 Settings 里走 OAuth；(3) 或填手动 API key。`
         });
         return;
       }
@@ -38,7 +43,7 @@ export function registerLlmIpc(getWindow: () => BrowserWindow | null): void {
 
       try {
         await adapter.streamChat({
-          apiKey,
+          token,
           model: req.model || adapter.defaultModel,
           systemPrompt: req.systemPrompt,
           messages: req.messages,
@@ -63,5 +68,28 @@ export function registerLlmIpc(getWindow: () => BrowserWindow | null): void {
     const c = activeRequests.get(requestId);
     c?.abort();
     activeRequests.delete(requestId);
+  });
+
+  ipcMain.handle(
+    'llm:probeAuth',
+    async (
+      _e,
+      provider: ProviderId
+    ): Promise<{ strategy: 'cli' | 'apikey' | 'none'; label: string }> => {
+      const hasKey = !!(await getApiKey(provider));
+      return probeAuthStatus(provider, hasKey);
+    }
+  );
+
+  ipcMain.handle('llm:oauthLogin', async (_e, provider: ProviderId) => {
+    if (provider === 'anthropic') {
+      await loginClaudeViaBrowser();
+      return { ok: true };
+    }
+    if (provider === 'openai') {
+      await loginChatGPTViaBrowser();
+      return { ok: true };
+    }
+    throw new Error(`${provider} 不支持 OAuth`);
   });
 }

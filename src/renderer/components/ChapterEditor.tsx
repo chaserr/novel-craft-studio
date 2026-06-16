@@ -11,7 +11,7 @@ export default function ChapterEditor(): JSX.Element {
   const path = useProject((s) => s.activeFilePath);
   const content = useProject((s) => s.activeFileContent);
   const dirty = useProject((s) => s.activeFileDirty);
-  const updateContent = useProject((s) => s.updateActiveContent);
+  const updateContent = useProject((s) => s.setActiveContent);
   const save = useProject((s) => s.saveActiveFile);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 

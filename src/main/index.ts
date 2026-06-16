@@ -4,6 +4,7 @@ import { registerKeychainIpc } from './ipc/keychain';
 import { registerLlmIpc } from './ipc/llm';
 import { registerProjectIpc } from './ipc/project';
 import { registerFilesIpc } from './ipc/files';
+import { registerWorkflowIpc } from './ipc/workflow';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -57,6 +58,7 @@ app.whenReady().then(() => {
   registerFilesIpc();
   registerProjectIpc();
   registerLlmIpc(() => mainWindow);
+  registerWorkflowIpc(() => mainWindow);
   createWindow();
 
   app.on('activate', () => {

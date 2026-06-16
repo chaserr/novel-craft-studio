@@ -6,7 +6,9 @@ import type {
   NewProjectFields,
   ProjectFileEntry,
   ProjectMeta,
-  ProviderId
+  ProviderId,
+  WorkflowEvent,
+  WorkflowRunRequest
 } from '../shared/types';
 
 const api = {
@@ -51,7 +53,7 @@ const api = {
       ipcRenderer.invoke('files:write', path, content)
   },
 
-  /* ---------- llm streaming ---------- */
+  /* ---------- llm streaming (used by Tab 2 free chat) ---------- */
   llm: {
     stream: (req: {
       requestId: string;
@@ -66,6 +68,25 @@ const api = {
       const handler = (_: unknown, e: LlmStreamEvent): void => cb(e);
       ipcRenderer.on('llm:event', handler);
       return () => ipcRenderer.removeListener('llm:event', handler);
+    },
+    probeAuth: (
+      provider: ProviderId
+    ): Promise<{ strategy: 'cli' | 'apikey' | 'none'; label: string }> =>
+      ipcRenderer.invoke('llm:probeAuth', provider),
+    oauthLogin: (provider: ProviderId): Promise<{ ok: boolean }> =>
+      ipcRenderer.invoke('llm:oauthLogin', provider)
+  },
+
+  /* ---------- workflow engine (Tab 1) ---------- */
+  workflow: {
+    run: (req: WorkflowRunRequest): Promise<void> =>
+      ipcRenderer.invoke('workflow:run', req),
+    cancel: (requestId: string): Promise<void> =>
+      ipcRenderer.invoke('workflow:cancel', requestId),
+    onEvent: (cb: (e: WorkflowEvent) => void): (() => void) => {
+      const handler = (_: unknown, e: WorkflowEvent): void => cb(e);
+      ipcRenderer.on('workflow:event', handler);
+      return () => ipcRenderer.removeListener('workflow:event', handler);
     }
   }
 };

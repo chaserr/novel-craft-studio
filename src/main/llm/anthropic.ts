@@ -1,9 +1,24 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ProviderAdapter, StreamChatParams } from './types';
 
+/**
+ * Anthropic adapter.
+ *  - apikey mode: x-api-key header
+ *  - cli mode:    Authorization: Bearer <oauth_access_token>
+ *                 + anthropic-beta with oauth-2025-04-20, claude-code-* flags
+ *                 + system prompt MUST start with "You are Claude Code, ..." prefix
+ *                   (Anthropic validates this on OAuth requests)
+ */
+
+const CLAUDE_CODE_SYSTEM_PREFIX =
+  "You are Claude Code, Anthropic's official CLI for Claude.";
+
+const OAUTH_BETA =
+  'oauth-2025-04-20,claude-code-20250219,interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14';
+
 export const anthropicAdapter: ProviderAdapter = {
   id: 'anthropic',
-  defaultModel: 'claude-opus-4-5-20251101',
+  defaultModel: 'claude-sonnet-4-5',
   models: [
     'claude-opus-4-5-20251101',
     'claude-sonnet-4-5',
@@ -11,9 +26,28 @@ export const anthropicAdapter: ProviderAdapter = {
   ],
 
   async streamChat(p: StreamChatParams): Promise<void> {
-    const client = new Anthropic({ apiKey: p.apiKey });
+    const isCli = p.token.source === 'cli';
+
+    // Anthropic SDK takes apiKey *or* authToken. For OAuth bearer, use authToken.
+    const client = new Anthropic(
+      isCli
+        ? {
+            authToken: p.token.accessToken,
+            defaultHeaders: {
+              'anthropic-beta': OAUTH_BETA
+            }
+          }
+        : {
+            apiKey: p.token.accessToken
+          }
+    );
+
+    // For OAuth: prepend "You are Claude Code..." to system prompt.
+    const systemPrompt = isCli
+      ? `${CLAUDE_CODE_SYSTEM_PREFIX}\n\n${p.systemPrompt}`
+      : p.systemPrompt;
+
     try {
-      // Anthropic 要求 messages 不能含 system role；system 单独传
       const msgs = p.messages
         .filter((m) => m.role !== 'system')
         .map((m) => ({
@@ -25,7 +59,7 @@ export const anthropicAdapter: ProviderAdapter = {
         {
           model: p.model,
           max_tokens: 8192,
-          system: p.systemPrompt,
+          system: systemPrompt,
           messages: msgs
         },
         { signal: p.abortSignal }
