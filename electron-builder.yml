@@ -1,5 +1,5 @@
-appId: io.github.chaserr.novel-craft-studio
-productName: novel-craft-studio
+appId: io.github.chaserr.orchid
+productName: Orchid
 copyright: Copyright © 2026 chaser
 
 publish:
@@ -24,6 +24,7 @@ asarUnpack:
 
 mac:
   category: public.app-category.productivity
+  icon: resources/icon.png
   target:
     - target: dmg
       arch:
@@ -37,6 +38,7 @@ dmg:
   artifactName: ${productName}-${version}-${arch}.dmg
 
 win:
+  icon: resources/icon.png
   target:
     - target: nsis
       arch:

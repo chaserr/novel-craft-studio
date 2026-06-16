@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type {
   AppSettings,
   ChatMessage,
+  ChatMode,
   ChatSession,
   ChatSessionSummary,
   LlmStreamEvent,
@@ -9,13 +10,27 @@ import type {
   ProjectFileEntry,
   ProjectMeta,
   ProviderId,
+  ReasoningEffort,
   WorkflowEvent,
   WorkflowRunRequest
 } from '../shared/types';
 
+export interface BuildInfo {
+  fingerprint: string;
+  channel: 'dev' | 'release';
+  tag: string;
+  timestamp: string;
+  origin: string;
+}
+
 const api = {
   /* ---------- platform info ---------- */
   platform: process.platform as NodeJS.Platform,
+
+  /* ---------- app meta (for About modal) ---------- */
+  app: {
+    buildInfo: (): Promise<BuildInfo> => ipcRenderer.invoke('app:build-info')
+  },
 
   /* ---------- keychain / settings ---------- */
   settings: {
@@ -52,7 +67,11 @@ const api = {
   files: {
     read: (path: string): Promise<string> => ipcRenderer.invoke('files:read', path),
     write: (path: string, content: string): Promise<void> =>
-      ipcRenderer.invoke('files:write', path, content)
+      ipcRenderer.invoke('files:write', path, content),
+    showInFolder: (path: string): Promise<void> =>
+      ipcRenderer.invoke('files:showInFolder', path),
+    trash: (path: string): Promise<void> =>
+      ipcRenderer.invoke('files:trash', path)
   },
 
   /* ---------- llm streaming (used by Tab 2 free chat) ---------- */
@@ -64,6 +83,9 @@ const api = {
       systemPrompt: string;
       messages: ChatMessage[];
       resumeSessionId?: string;
+      mode?: ChatMode;
+      reasoningEffort?: ReasoningEffort;
+      projectRoot?: string;
     }): Promise<void> => ipcRenderer.invoke('llm:stream', req),
     cancel: (requestId: string): Promise<void> =>
       ipcRenderer.invoke('llm:cancel', requestId),

@@ -1,5 +1,11 @@
 import { ipcMain, BrowserWindow } from 'electron';
-import type { ChatMessage, LlmStreamEvent, ProviderId } from '../../shared/types';
+import type {
+  ChatMessage,
+  ChatMode,
+  LlmStreamEvent,
+  ProviderId,
+  ReasoningEffort
+} from '../../shared/types';
 import { getAdapter } from '../llm/registry';
 import { getApiKey } from './keychain';
 import { resolveToken, probeAuthStatus } from './cli-token';
@@ -20,6 +26,9 @@ export function registerLlmIpc(getWindow: () => BrowserWindow | null): void {
         systemPrompt: string;
         messages: ChatMessage[];
         resumeSessionId?: string;
+        mode?: ChatMode;
+        reasoningEffort?: ReasoningEffort;
+        projectRoot?: string;
       }
     ) => {
       const send = (e: LlmStreamEvent): void => {
@@ -49,6 +58,9 @@ export function registerLlmIpc(getWindow: () => BrowserWindow | null): void {
           systemPrompt: req.systemPrompt,
           messages: req.messages,
           resumeSessionId: req.resumeSessionId,
+          mode: req.mode,
+          reasoningEffort: req.reasoningEffort,
+          projectRoot: req.projectRoot,
           abortSignal: controller.signal,
           onChunk: (delta) =>
             send({ requestId: req.requestId, type: 'chunk', delta }),

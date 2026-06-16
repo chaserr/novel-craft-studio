@@ -8,3 +8,9 @@ dist/
 *.swp
 .idea/
 .vscode/
+
+# build-token override：CI 在 runner 上把真实 token 临时写入 build-token.ts 再构建，
+# 不会推回 git。作者本地若需要手动模拟 release token，请存为 .release.ts /
+# .local.ts 这两个 gitignored 路径，不要污染主文件。
+src/shared/build-token.release.ts
+src/shared/build-token.local.ts

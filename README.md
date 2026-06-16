@@ -1,4 +1,22 @@
-# novel-craft-studio
+# Orchid
+
+> ## 使用许可（必读 / READ FIRST）
+>
+> 本项目采用 **[PolyForm Noncommercial 1.0.0](./LICENSE)** 协议，**不是 MIT**。
+>
+> - ✅ **允许**：个人学习、爱好使用、研究、修改、非商业传播、公益/学校/政府使用
+> - ❌ **禁止**（除非另行获得作者书面授权）：销售本软件或其修改版、打包进任何收费产品 / 付费服务 / SaaS、商业贴牌或二次包装售卖、移除/篡改/绕过软件内嵌的版本指纹标识
+> - 📩 **商业授权**：到本仓库开 Issue，标题 `[Commercial License Request]`，说明使用场景
+>
+> ---
+>
+> **License notice (English):** This project is released under the
+> **PolyForm Noncommercial License 1.0.0**, NOT MIT.
+> Personal / hobby / educational / research / charitable use is permitted.
+> Any commercial use — including resale, paid SaaS hosting, bundling into a
+> paid product, white-label rebranding, or stripping the embedded build
+> fingerprint — is prohibited without a separate written commercial license.
+> For commercial licensing, open an Issue titled `[Commercial License Request]`.
 
 [novel-craft](https://github.com/chaserr/novel-craft) 的桌面 GUI 同款。在 Mac / Windows 上打开就能用，支持 **OpenAI / Claude / DeepSeek** 三家 LLM 自由切换。
 
@@ -38,9 +56,9 @@
 
 最新发布版：https://github.com/chaserr/novel-craft-studio/releases/latest
 
-- **Mac (Apple Silicon)**：下载 `novel-craft-studio-<version>-arm64.dmg`
-- **Mac (Intel)**：下载 `novel-craft-studio-<version>-x64.dmg`
-- **Windows**：下载 `novel-craft-studio-Setup-<version>.exe`
+- **Mac (Apple Silicon)**：下载 `Orchid-<version>-arm64.dmg`
+- **Mac (Intel)**：下载 `Orchid-<version>-x64.dmg`
+- **Windows**：下载 `Orchid-Setup-<version>.exe`
 
 首次启动需要绕过 Gatekeeper（Mac） / SmartScreen（Windows）—— 本 app 未做代码签名（开源项目，签名需付费证书）：
 - **Mac**：右键 dmg → 打开，或系统偏好设置 → 安全性与隐私 → "仍要打开"
@@ -76,8 +94,8 @@ npm run dev
 
 ```bash
 npm run build:mac
-# 产物：dist/novel-craft-studio-0.1.0-arm64.dmg
-#       dist/novel-craft-studio-0.1.0-x64.dmg
+# 产物：dist/Orchid-0.1.0-arm64.dmg
+#       dist/Orchid-0.1.0-x64.dmg
 ```
 
 **未代码签名**，首次启动时 Mac 会拒绝打开。处理：
@@ -89,10 +107,58 @@ npm run build:mac
 ```bash
 # 在 Windows 机器上执行（macOS 打 Windows 包需额外配置）
 npm run build:win
-# 产物：dist/novel-craft-studio-Setup-0.1.0.exe
+# 产物：dist/Orchid-Setup-0.1.0.exe
 ```
 
 未代码签名，SmartScreen 会拦截。处理：点"更多信息" → "仍要运行"。
+
+## 聊天模式：Ask / Edit / Agent
+
+右栏「自由询问」聊天框输入区上方有 **Ask / Edit / Agent** 三模式切换。底层映射到 codex CLI 的 sandbox 权限和 prompt 指令前缀。
+
+### 一句话区分
+
+- **Ask**：你问我答，AI 给建议，**你自己决定要不要改文件**
+- **Edit**：AI 围绕**当前打开的那个文件**给出完整修订版，下方出现「应用到 xxx」按钮
+- **Agent**：把活儿全交给 AI，它读你项目里所有相关文件，**自己改了直接保存**
+
+### 三模式对比
+
+| 维度 | Ask | Edit | Agent |
+|---|---|---|---|
+| 核心区别 | 只回答，**不动文件** | 围绕当前文件给修订版 | 自主多步**读写项目文件** |
+| codex CLI 沙箱 | `--sandbox read-only` | `--sandbox read-only` + 编辑指令 | `--sandbox workspace-write` + `cwd=projectRoot` |
+| 可读取 | ✅ 项目内文件 | ✅ 项目内文件 | ✅ 项目内任意文件 |
+| 可写入 | ❌ | ❌（用 Apply 按钮你来写）| ✅ 自动写盘 |
+| AI 自主多步 | 单轮 | 单轮 | 多步：读 A → 改 B → 检查 C → 汇报 |
+| 谁能用 | 所有 provider | 所有 provider | **仅 OpenAI + codex CLI**，其它 provider 自动降级到 Ask 行为 |
+
+### 典型用法
+
+**Ask** — 打开第 3 章后问："这一章节奏太慢，怎么办？"
+→ AI 在聊天框里给建议，**你自己决定改不改**。
+
+**Edit** — 打开第 3 章，写："把第 2 段砍到一半，章末换成跨场景叠加"
+→ AI 在聊天框输出**完整的修订版第 3 章**（在一个 markdown 代码块里）
+→ 下方出现「应用到 第3章.md」按钮，点了直接覆盖写盘 + 编辑器刷新
+
+**Agent** — 写："读 RTK 和章节大纲，写第 5 章正文，并更新前情梳理和伏笔清单"
+→ AI 自己去：读相关文件 → 写出 `第5章-XXX.md` → 改 `前情梳理.md` 追加 → 改 `伏笔清单.md` 标记 → 在聊天框汇报做了什么
+→ 你只需要去左栏看新文件，决定**接不接受**它的改动
+
+### 安全角度
+
+- **Ask** 完全只读 → 不可能改坏项目
+- **Edit** AI 只输出建议文本，**你点 Apply 才真写盘**（可控 + 可回看）
+- **Agent** AI 可写盘 → 适合比较信任 AI 时用；不放心可以让它先用 Ask 给出计划，确认后再切 Agent
+
+### 推理强度（低 / 中 / 高）
+
+模式选择器旁边还有「低 / 中 / 高」三档，对应 codex 的 `model_reasoning_effort`：
+
+- **低**：快、token 少 — 改字、回弹问答
+- **中**：默认平衡
+- **高**：慢但思考深 — 大纲、结构性问题
 
 ## 技术栈
 
@@ -161,4 +227,8 @@ src/
 
 ## License
 
-[MIT](./LICENSE) © chaser
+[PolyForm Noncommercial 1.0.0](./LICENSE) © 2026 chaser
+
+非商业使用免费；商业使用须另行书面授权。详见 [LICENSE](./LICENSE) 与本 README 顶部「使用许可」段落。
+
+每个 release 构建都会嵌入唯一的版本指纹（`BUILD_FINGERPRINT`），用于识别二次分发来源。请勿移除或篡改 —— 这是判定违规分发的关键证据。

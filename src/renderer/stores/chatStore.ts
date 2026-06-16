@@ -15,9 +15,11 @@
 import { create } from 'zustand';
 import type {
   ChatMessage,
+  ChatMode,
   ChatSession,
   ChatSessionSummary,
-  LlmStreamEvent
+  LlmStreamEvent,
+  ReasoningEffort
 } from '../../shared/types';
 import { api } from '../lib/ipc';
 import { useSettings } from './settingsStore';
@@ -28,6 +30,11 @@ interface ChatState {
   /** Currently active session. null = no session yet (next send starts a new one). */
   current: ChatSession | null;
 
+  /** Codex-style mode: ask / edit / agent. Persists across sessions in-memory. */
+  mode: ChatMode;
+  /** 推理强度 low/medium/high — 默认 medium。 */
+  reasoningEffort: ReasoningEffort;
+
   streaming: boolean;
   activeRequestId: string | null;
   error: string | null;
@@ -36,9 +43,15 @@ interface ChatState {
   loadList: (projectRoot?: string) => Promise<void>;
   newSession: () => void;
   selectSession: (id: string) => Promise<void>;
+  setMode: (m: ChatMode) => void;
+  setReasoningEffort: (e: ReasoningEffort) => void;
 
   // ----- chat ops -----
-  send: (userText: string, systemPrompt: string) => Promise<void>;
+  send: (
+    userText: string,
+    systemPrompt: string,
+    projectRoot?: string
+  ) => Promise<void>;
   cancel: () => Promise<void>;
   clearError: () => void;
 }
@@ -91,9 +104,19 @@ export const useChat = create<ChatState>((set, get) => {
   return {
     sessions: [],
     current: null,
+    mode: 'ask',
+    reasoningEffort: 'medium',
     streaming: false,
     activeRequestId: null,
     error: null,
+
+    setMode: (m) => {
+      set({ mode: m });
+    },
+
+    setReasoningEffort: (e) => {
+      set({ reasoningEffort: e });
+    },
 
     loadList: async (projectRoot) => {
       const list = await api.codexSessions.list(projectRoot);
@@ -123,12 +146,27 @@ export const useChat = create<ChatState>((set, get) => {
       if (sess) set({ current: sess, error: null });
     },
 
-    send: async (userText, systemPrompt) => {
+    send: async (userText, systemPrompt, projectRoot) => {
       if (get().streaming) return;
+
+      // 始终用 settings 当前选中的 provider/model — UI 一致性的关键。
+      // 当前 session 与 settings provider 不一致时丢掉 resume id（codex
+      // session 只属于某个 provider，跨 provider 没法 resume）。
+      const settings = useSettings.getState().settings;
+      const provider = settings.activeProvider;
+      const model = settings.models[provider];
+
       let cur = get().current;
       if (!cur) {
         get().newSession();
         cur = get().current!;
+      }
+      const providerChanged = cur.provider !== provider;
+      if (providerChanged) {
+        cur = { ...cur, id: '', provider, model };
+      } else {
+        // model 单独跟 settings 走，方便用户在 settings 里调 model 选项
+        cur = { ...cur, model };
       }
 
       const userMsg: ChatMessage = { role: 'user', content: userText };
@@ -154,13 +192,16 @@ export const useChat = create<ChatState>((set, get) => {
       try {
         await api.llm.stream({
           requestId,
-          provider: cur.provider,
-          model: cur.model,
+          provider,
+          model,
           systemPrompt,
           messages,
           // If we have a session id from codex (assigned during a previous send),
           // resume the existing codex thread instead of starting new.
-          resumeSessionId: cur.id || undefined
+          resumeSessionId: cur.id || undefined,
+          mode: get().mode,
+          reasoningEffort: get().reasoningEffort,
+          projectRoot
         });
       } catch (err) {
         set({

@@ -1,0 +1,17 @@
+# macOS / IDE noise
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Large binary evidence — store with git-lfs if you really need to commit,
+# otherwise keep locally and reference the SHA256 in incident files.
+evidence/*/*.dmg
+evidence/*/*.exe
+evidence/*/*.zip
+evidence/*/*.mp4
+evidence/*/*.mov
+
+# Scratch / drafts
+**/_draft_*
+**/_scratch_*

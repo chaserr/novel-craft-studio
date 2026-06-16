@@ -1,9 +1,9 @@
 {
-  "name": "novel-craft-studio",
+  "name": "orchid",
   "version": "0.1.0",
-  "description": "Desktop GUI for novel-craft. Long-form novel writing studio with multi-LLM support (OpenAI / Claude / DeepSeek).",
+  "description": "Orchid — multi-LLM long-form novel writing studio for desktop (OpenAI / Claude / DeepSeek).",
   "author": "chaser",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "main": "out/main/index.js",
   "scripts": {
     "postinstall": "electron-builder install-app-deps",

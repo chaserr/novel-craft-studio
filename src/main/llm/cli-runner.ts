@@ -15,7 +15,8 @@
 import { spawn, ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import type { StreamChatParams } from './types';
+import { applyModeToSystemPrompt, type StreamChatParams } from './types';
+import { injectFingerprintIntoPrompt } from '../../shared/fingerprint';
 
 interface CliResult {
   exitCode: number;
@@ -91,7 +92,7 @@ export async function streamViaClaudeCli(p: StreamChatParams): Promise<void> {
     '--verbose',
     '--dangerously-skip-permissions',
     '--append-system-prompt',
-    p.systemPrompt
+    applyModeToSystemPrompt(p.systemPrompt, p.mode)
   ];
   if (p.model) {
     args.push('--model', p.model);
@@ -144,28 +145,61 @@ export async function streamViaCodexCli(p: StreamChatParams): Promise<void> {
   }
 
   const isResume = !!p.resumeSessionId;
+  const mode = p.mode ?? 'ask';
+
+  // Codex CLI 沙箱权限：
+  //  ask/edit → read-only（不能改文件，纯问答 / 给出建议）
+  //  agent    → workspace-write（可自主读写 projectRoot 内文件）
+  const sandbox = mode === 'agent' ? 'workspace-write' : 'read-only';
+
+  // edit 模式给出固定指令前缀：让模型围绕"当前编辑文件"输出完整修订版本
+  const modeInstruction =
+    mode === 'edit'
+      ? '\n\n[Edit 模式] 请仅修改"当前正在编辑的文件"，输出 **完整修订后的文件内容**，放在单个 ```markdown ... ``` 代码块里。不要解释，不要输出 diff，不要修改其他文件。\n'
+      : mode === 'agent'
+        ? '\n\n[Agent 模式] 你可以自主多步：读项目内任意文件、写回到对应文件，完成后简要汇报做了什么。\n'
+        : '';
 
   // When resuming, only send the *latest* user message (codex remembers context).
   // When new, embed system prompt + all user messages as prologue.
   const userMessages = p.messages.filter((m) => m.role !== 'system');
   const newestUser = userMessages[userMessages.length - 1]?.content ?? '';
   const fullPrompt = isResume
-    ? newestUser
-    : p.systemPrompt + '\n\n---\n\n' + userMessages.map((m) => m.content).join('\n\n');
+    ? newestUser + modeInstruction
+    : injectFingerprintIntoPrompt(p.systemPrompt) +
+      modeInstruction +
+      '\n\n---\n\n' +
+      userMessages.map((m) => m.content).join('\n\n');
+
+  // 推理强度：低 / 中 / 高 — 直接映射到 codex 的 model_reasoning_effort。
+  // 默认 medium（codex CLI 自己的默认）。
+  const effort = p.reasoningEffort ?? 'medium';
 
   const baseArgs = [
     '--json',
     '--skip-git-repo-check',
     '--sandbox',
-    'workspace-write',
+    sandbox,
     // service_tier "default" in user's config.toml may not parse; force valid value
     '-c',
-    'service_tier="fast"'
+    'service_tier="fast"',
+    '-c',
+    `model_reasoning_effort="${effort}"`
   ];
   const args = isResume
     ? ['exec', 'resume', ...baseArgs]
     : ['exec', ...baseArgs];
-  if (p.model) {
+  // codex CLI 只接受 ChatGPT 账户允许的 gpt-5.x 系。其它（如 gpt-4o*、o1-*）传过去会
+  // 400 invalid_request_error。不在白名单里就不传 -m，让 codex CLI 走账户默认 model
+  // —— 这一行同时修了 ChatPanel 和 workflow 里每个 agent 的「不被支持模型」错误。
+  const CODEX_COMPATIBLE = new Set([
+    'gpt-5.5',
+    'gpt-5',
+    'gpt-5-codex',
+    'gpt-5-mini',
+    'gpt-5-nano'
+  ]);
+  if (p.model && CODEX_COMPATIBLE.has(p.model)) {
     args.push('-m', p.model);
   }
   if (isResume) {
@@ -173,7 +207,10 @@ export async function streamViaCodexCli(p: StreamChatParams): Promise<void> {
   }
   args.push(fullPrompt);
 
-  return runCli(codex, args, p, parseCodexChunk);
+  // Agent 模式需要把 cwd 设到 projectRoot，否则沙箱根落在 app 进程目录
+  const cwd = mode === 'agent' && p.projectRoot ? p.projectRoot : undefined;
+
+  return runCli(codex, args, p, parseCodexChunk, cwd);
 }
 
 function parseCodexChunk(line: string, p: StreamChatParams): void {
@@ -216,7 +253,8 @@ async function runCli(
   bin: string,
   args: string[],
   p: StreamChatParams,
-  onLine: (line: string, p: StreamChatParams) => void
+  onLine: (line: string, p: StreamChatParams) => void,
+  cwd?: string
 ): Promise<void> {
   return new Promise<void>((resolve) => {
     let proc: ChildProcess | null = null;
@@ -224,6 +262,7 @@ async function runCli(
       proc = spawn(bin, args, {
         // Inherit env so PATH / token lookups work
         env: process.env,
+        cwd,
         // Close stdin so CLI doesn't wait for piped input
         stdio: ['ignore', 'pipe', 'pipe']
       });

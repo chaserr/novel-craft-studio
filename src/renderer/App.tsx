@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AppShell, Group, Title, Button, ActionIcon, Tooltip, Badge, Tabs, Box } from '@mantine/core';
-import { IconSettings, IconFolderOpen, IconFilePlus, IconLayoutDashboard, IconMessage } from '@tabler/icons-react';
+import { IconSettings, IconFolderOpen, IconFilePlus, IconLayoutDashboard, IconMessage, IconInfoCircle } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useSettings } from './stores/settingsStore';
 import { useProject } from './stores/projectStore';
@@ -10,12 +10,14 @@ import WorkflowPanel from './components/WorkflowPanel';
 import ChatPanel from './components/ChatPanel';
 import SettingsModal from './components/SettingsModal';
 import NewProjectModal from './components/NewProjectModal';
+import AboutModal from './components/AboutModal';
 import { api } from './lib/ipc';
 
 export default function App(): JSX.Element {
   const isMac = api.platform === 'darwin';
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const loadSettings = useSettings((s) => s.load);
   const settingsLoaded = useSettings((s) => s.loaded);
   const novelCraftPath = useSettings((s) => s.settings.novelCraftPath);
@@ -58,7 +60,7 @@ export default function App(): JSX.Element {
       <AppShell.Header className="app-titlebar">
         <Group justify="space-between" h="100%" px="md" wrap="nowrap">
           <Group gap="xs" pl={isMac ? 60 : 0}>
-            <Title order={5}>novel-craft-studio</Title>
+            <Title order={5}>Orchid</Title>
             {meta && (
               <Badge variant="light" color="indigo">
                 {meta.bookTitle}
@@ -84,6 +86,15 @@ export default function App(): JSX.Element {
             >
               打开项目
             </Button>
+            <Tooltip label="关于">
+              <ActionIcon
+                variant="default"
+                onClick={() => setAboutOpen(true)}
+                data-no-drag
+              >
+                <IconInfoCircle size={16} />
+              </ActionIcon>
+            </Tooltip>
             <Tooltip label="设置">
               <ActionIcon
                 variant="default"
@@ -141,6 +152,7 @@ export default function App(): JSX.Element {
         opened={newProjectOpen}
         onClose={() => setNewProjectOpen(false)}
       />
+      <AboutModal opened={aboutOpen} onClose={() => setAboutOpen(false)} />
     </AppShell>
   );
 }

@@ -119,6 +119,8 @@ interface BuildPromptArgs {
   novelCraftPath: string;
   projectRoot: string;
   chapterPaths: string[];
+  /** 用户在 UI 里补充的故事简述（项目字段稀疏时用）。 */
+  extraContext?: string;
 }
 
 async function buildSystemPrompt(args: BuildPromptArgs): Promise<{
@@ -137,6 +139,9 @@ async function buildSystemPrompt(args: BuildPromptArgs): Promise<{
   systemParts.push(`# 当前任务\n\n${actionDirective}`);
 
   const userParts: string[] = [];
+  // 用户在 UI 里补的故事简述放最前，优先级最高 — 这是 RTK 之外作者的"原始意图"。
+  if (args.extraContext && args.extraContext.trim())
+    userParts.push(`## 作者补充的故事简述（高优先级）\n\n${args.extraContext.trim()}`);
   if (ctx.outline)
     userParts.push(`## 小说大纲\n\n${ctx.outline}`);
   if (ctx.chapterOutline)
@@ -272,7 +277,8 @@ export function registerWorkflowIpc(getWindow: () => BrowserWindow | null): void
         config: req.config,
         novelCraftPath: req.novelCraftPath,
         projectRoot: req.projectRoot,
-        chapterPaths: req.chapterPaths
+        chapterPaths: req.chapterPaths,
+        extraContext: req.extraContext
       });
       const messages: ChatMessage[] = [{ role: 'user', content: user }];
       return new Promise<void>((resolve) => {

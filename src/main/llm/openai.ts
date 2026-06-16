@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { ProviderAdapter, StreamChatParams } from './types';
+import { applyModeToSystemPrompt, type ProviderAdapter, type StreamChatParams } from './types';
 import { streamViaCodexCli } from './cli-runner';
 
 /**
@@ -30,7 +30,7 @@ async function streamChatViaApiKey(p: StreamChatParams): Promise<void> {
         model: p.model,
         stream: true,
         messages: [
-          { role: 'system', content: p.systemPrompt },
+          { role: 'system', content: applyModeToSystemPrompt(p.systemPrompt, p.mode) },
           ...p.messages.map((m) => ({ role: m.role, content: m.content }))
         ]
       },

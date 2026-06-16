@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { ProviderAdapter, StreamChatParams } from './types';
+import { applyModeToSystemPrompt, type ProviderAdapter, type StreamChatParams } from './types';
 
 export const deepseekAdapter: ProviderAdapter = {
   id: 'deepseek',
@@ -17,7 +17,7 @@ export const deepseekAdapter: ProviderAdapter = {
           model: p.model,
           stream: true,
           messages: [
-            { role: 'system', content: p.systemPrompt },
+            { role: 'system', content: applyModeToSystemPrompt(p.systemPrompt, p.mode) },
             ...p.messages.map((m) => ({ role: m.role, content: m.content }))
           ]
         },

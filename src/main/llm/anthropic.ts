@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { ProviderAdapter, StreamChatParams } from './types';
+import { applyModeToSystemPrompt, type ProviderAdapter, type StreamChatParams } from './types';
 import { streamViaClaudeCli } from './cli-runner';
 
 /**
@@ -36,7 +36,7 @@ async function streamChatViaApiKey(p: StreamChatParams): Promise<void> {
       {
         model: p.model,
         max_tokens: 8192,
-        system: p.systemPrompt,
+        system: applyModeToSystemPrompt(p.systemPrompt, p.mode),
         messages: msgs
       },
       { signal: p.abortSignal }

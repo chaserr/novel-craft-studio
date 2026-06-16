@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { join } from 'node:path';
 import { registerKeychainIpc } from './ipc/keychain';
 import { registerLlmIpc } from './ipc/llm';
@@ -6,6 +6,14 @@ import { registerProjectIpc } from './ipc/project';
 import { registerFilesIpc } from './ipc/files';
 import { registerWorkflowIpc } from './ipc/workflow';
 import { registerCodexSessionsIpc } from './ipc/codex-sessions';
+import {
+  BUILD_FINGERPRINT,
+  BUILD_CHANNEL,
+  BUILD_TAG,
+  BUILD_TIMESTAMP,
+  ORIGIN_REPO,
+  buildBanner
+} from '../shared/fingerprint';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -55,6 +63,14 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  console.info(buildBanner());
+  ipcMain.handle('app:build-info', () => ({
+    fingerprint: BUILD_FINGERPRINT,
+    channel: BUILD_CHANNEL,
+    tag: BUILD_TAG,
+    timestamp: BUILD_TIMESTAMP,
+    origin: ORIGIN_REPO
+  }));
   registerKeychainIpc();
   registerFilesIpc();
   registerProjectIpc();

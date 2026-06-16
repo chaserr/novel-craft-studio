@@ -99,12 +99,33 @@ export interface AppSettings {
 /*                            LLM streaming                                  */
 /* ------------------------------------------------------------------------ */
 
+/**
+ * Codex-style chat modes:
+ *  - 'ask'   仅问答，禁止改文件（codex CLI: --sandbox read-only）
+ *  - 'edit'  围绕当前激活文件给出修订版本（read-only sandbox + 编辑指令模板）
+ *  - 'agent' 自主多步：可读写项目目录（codex CLI: --sandbox workspace-write）
+ */
+export type ChatMode = 'ask' | 'edit' | 'agent';
+
+/**
+ * 推理强度（codex CLI: model_reasoning_effort）。
+ *  - low    更快、token 更少（≈ codex 的 "fast"）
+ *  - medium 默认
+ *  - high   更慢、思考更深
+ * 仅对 gpt-5 系列在 codex CLI 下有效；其它 provider/路径里被忽略或映射到对等概念。
+ */
+export type ReasoningEffort = 'low' | 'medium' | 'high';
+
 export interface LlmStreamRequest {
   requestId: string;
   provider: ProviderId;
   model: string;
   systemPrompt: string;
   messages: ChatMessage[];
+  mode?: ChatMode;
+  reasoningEffort?: ReasoningEffort;
+  /** Project root — Codex Agent 模式需要它作为 CLI cwd（沙箱根）。 */
+  projectRoot?: string;
 }
 
 export interface LlmStreamEvent {
@@ -188,6 +209,11 @@ export interface WorkflowRunRequest {
   projectRoot: string;
   /** novel-craft local path for agent system prompts. */
   novelCraftPath: string;
+  /**
+   * 用户在新建项目时没填详细字段，或现有项目 RTK 内容稀疏时，引导用户在 UI 里
+   * 输入的故事简述。后端会把它附在每个 agent 的用户消息最上面，让 LLM 有依据。
+   */
+  extraContext?: string;
 }
 
 export interface WorkflowEvent {

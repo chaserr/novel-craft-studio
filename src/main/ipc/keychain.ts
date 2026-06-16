@@ -9,7 +9,7 @@ import type { AppSettings, ProviderId } from '../../shared/types';
 const execAsync = promisify(exec);
 const NOVEL_CRAFT_REPO = 'https://github.com/chaserr/novel-craft.git';
 
-const SERVICE = 'novel-craft-studio';
+const SERVICE = 'orchid';
 
 function configPath(): string {
   const dir = app.getPath('userData');
@@ -22,7 +22,9 @@ function defaultSettings(): AppSettings {
     novelCraftPath: '',
     activeProvider: 'deepseek',
     models: {
-      openai: 'gpt-4o',
+      // gpt-5.5 是当前 codex CLI（ChatGPT 账户）默认支持的最新模型；
+      // gpt-4o 系会被 codex 拒（400 invalid_request_error）。
+      openai: 'gpt-5.5',
       anthropic: 'claude-sonnet-4-5',
       deepseek: 'deepseek-chat'
     },

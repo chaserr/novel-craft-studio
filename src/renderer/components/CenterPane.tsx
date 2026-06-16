@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Tabs } from '@mantine/core';
 import { IconPencil, IconLayoutDashboard } from '@tabler/icons-react';
 import ChapterEditor from './ChapterEditor';
 import WorkflowResultView from './WorkflowResultView';
 import WelcomeView from './WelcomeView';
-import { useWorkflow } from '../stores/workflowStore';
+import { useAnyRunning, useWorkflow } from '../stores/workflowStore';
 import { useProject } from '../stores/projectStore';
 
 interface Props {
@@ -26,8 +26,8 @@ export default function CenterPane({
   openNewProject,
   openExistingProject
 }: Props): JSX.Element {
-  const running = useWorkflow((s) => s.running);
-  const hasSubtasks = useWorkflow((s) => s.subtasks.length > 0);
+  const running = useAnyRunning();
+  const hasRuns = useWorkflow((s) => Object.keys(s.runs).length > 0);
   const activeFilePath = useProject((s) => s.activeFilePath);
   const meta = useProject((s) => s.meta);
 
@@ -36,22 +36,28 @@ export default function CenterPane({
   //  - 已经在编辑文件 → editor
   //  - 否则 → welcome
   const initialTab = (): 'welcome' | 'editor' | 'workflow' => {
-    if (running || hasSubtasks) return 'workflow';
+    if (running || hasRuns) return 'workflow';
     if (activeFilePath) return 'editor';
     return 'welcome';
   };
 
   const [tab, setTab] = useState<'welcome' | 'editor' | 'workflow'>(initialTab);
+  const prevActivePath = useRef<string | null>(activeFilePath);
 
   // workflow 一启动 → 自动切到 workflow tab
   useEffect(() => {
     if (running) setTab('workflow');
   }, [running]);
 
-  // 用户首次打开文件 → 自动切到 editor
+  // 文件**刚打开 / 切到另一个文件**时 → 自动切到 editor。
+  // 之前这里的依赖里带了 `tab`，导致点「引导」时 effect 被 tab 变化再次触发，
+  // 又把 tab 强拽回 editor —— 现在改成只对 activeFilePath 的真实变化反应。
   useEffect(() => {
-    if (activeFilePath && tab === 'welcome') setTab('editor');
-  }, [activeFilePath, tab]);
+    if (activeFilePath && activeFilePath !== prevActivePath.current) {
+      setTab('editor');
+    }
+    prevActivePath.current = activeFilePath;
+  }, [activeFilePath]);
 
   // 项目状态变化 → 重置 tab
   useEffect(() => {

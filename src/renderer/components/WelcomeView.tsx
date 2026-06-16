@@ -12,7 +12,8 @@ import {
   ThemeIcon,
   Divider,
   List,
-  Alert
+  Alert,
+  Textarea
 } from '@mantine/core';
 import {
   IconCheck,
@@ -25,12 +26,13 @@ import {
   IconBook,
   IconUserHeart,
   IconPencil,
+  IconPencilPlus,
   IconSparkles
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useSettings } from '../stores/settingsStore';
 import { useProject } from '../stores/projectStore';
-import { useWorkflow } from '../stores/workflowStore';
+import { useIsActionRunning, useWorkflow } from '../stores/workflowStore';
 import { api } from '../lib/ipc';
 import type { ProviderId, WorkflowAction } from '../../shared/types';
 
@@ -117,7 +119,7 @@ export default function WelcomeView({
           {/* 大标题 */}
           <div>
             <Title order={1} mb={4}>
-              👋 欢迎使用 novel-craft-studio
+              👋 欢迎使用 Orchid
             </Title>
             <Text size="md" c="dimmed">
               长篇小说写作的工程化协作平台 —— 把写一本书拆成可重复的工序
@@ -284,7 +286,7 @@ export default function WelcomeView({
 
           <Alert color="indigo" variant="light" icon={<IconAlertCircle size={14} />}>
             <Text size="xs">
-              <b>提示</b>：novel-craft-studio 是一个 GUI 操作台 ——
+              <b>提示</b>：Orchid 是一个 GUI 操作台 ——
               所有工作都落地到磁盘的 markdown 文件。
               你随时可以用其他编辑器（VSCode / Typora）打开同一个项目目录继续写。
             </Text>
@@ -309,203 +311,364 @@ function StepIcon({
   );
 }
 
-interface DraftStepRowProps {
+type StepStatus = 'done' | 'next' | 'pending';
+
+interface ChecklistStepProps {
   n: number;
+  status: StepStatus;
   label: string;
   desc: string;
-  onDraft: () => void;
-  onEdit: () => void;
-  running: boolean;
+  /** 主按钮（起草 / 开始写 etc）。done 状态下默认不显示，需手动塞。 */
+  primary?: { label: string; icon: JSX.Element; onClick: () => void; disabled?: boolean };
+  /** 副按钮（编辑 / 继续写）。文件存在时才显示。 */
+  secondary?: { label: string; icon: JSX.Element; onClick: () => void };
 }
 
-function DraftStepRow({
+function ChecklistStep({
   n,
+  status,
   label,
   desc,
-  onDraft,
-  onEdit,
-  running
-}: DraftStepRowProps): JSX.Element {
+  primary,
+  secondary
+}: ChecklistStepProps): JSX.Element {
+  const isDone = status === 'done';
+  const isNext = status === 'next';
+  // 当前步：indigo 边框 + 高亮；已完成：绿对勾；后续步：透明虚化
   return (
-    <Card withBorder padding="sm" radius="md">
+    <Card
+      withBorder
+      padding="sm"
+      radius="md"
+      style={{
+        borderColor: isNext
+          ? 'var(--mantine-color-indigo-5)'
+          : 'var(--mantine-color-dark-4)',
+        borderWidth: isNext ? 2 : 1,
+        opacity: !isNext && !isDone ? 0.65 : 1
+      }}
+    >
       <Group justify="space-between" wrap="nowrap" align="flex-start">
         <Group gap="sm" wrap="nowrap" style={{ flex: 1 }}>
-          <Badge size="lg" variant="filled" color="indigo">
-            {n}
-          </Badge>
+          <ThemeIcon
+            size="lg"
+            radius="xl"
+            variant={isDone ? 'filled' : isNext ? 'filled' : 'light'}
+            color={isDone ? 'green' : isNext ? 'indigo' : 'gray'}
+          >
+            {isDone ? <IconCheck size={16} /> : <Text size="sm" fw={700}>{n}</Text>}
+          </ThemeIcon>
           <div style={{ flex: 1 }}>
-            <Text size="sm" fw={600}>
-              {label}
-            </Text>
-            <Text size="xs" c="dimmed">
+            <Group gap={6}>
+              <Text size="sm" fw={600}>
+                {label}
+              </Text>
+              {isDone && (
+                <Badge size="xs" color="green" variant="light">
+                  已完成
+                </Badge>
+              )}
+              {isNext && (
+                <Badge size="xs" color="indigo" variant="filled">
+                  当前步骤
+                </Badge>
+              )}
+            </Group>
+            <Text size="xs" c="dimmed" mt={2}>
               {desc}
             </Text>
           </div>
         </Group>
         <Group gap={6} wrap="nowrap">
-          <Button
-            size="xs"
-            leftSection={<IconSparkles size={12} />}
-            onClick={onDraft}
-            disabled={running}
-            variant="filled"
-          >
-            让 AI 起草
-          </Button>
-          <Button
-            size="xs"
-            variant="default"
-            leftSection={<IconPencil size={12} />}
-            onClick={onEdit}
-          >
-            手动编辑
-          </Button>
+          {primary && (
+            <Button
+              size="xs"
+              leftSection={primary.icon}
+              onClick={primary.onClick}
+              disabled={primary.disabled}
+              variant={isDone ? 'subtle' : 'filled'}
+            >
+              {primary.label}
+            </Button>
+          )}
+          {secondary && (
+            <Button
+              size="xs"
+              variant="default"
+              leftSection={secondary.icon}
+              onClick={secondary.onClick}
+            >
+              {secondary.label}
+            </Button>
+          )}
         </Group>
       </Group>
     </Card>
   );
 }
 
-/** 已打开项目但没选文件时显示。 */
+/** 已打开项目但没选文件时显示：5 步引导清单。 */
 function ProjectReadyView(): JSX.Element {
   const meta = useProject((s) => s.meta);
   const files = useProject((s) => s.files);
   const openFile = useProject((s) => s.openFile);
+  // 全局共享：所有 sparse 检测 + extraContext 都从 project store 取
+  const rtkSparse = useProject((s) => s.rtkSparse);
+  const outlineSparse = useProject((s) => s.outlineSparse);
+  const chapterOutlineSparse = useProject((s) => s.chapterOutlineSparse);
+  const extraContext = useProject((s) => s.extraContext);
+  const setExtraContext = useProject((s) => s.setExtraContext);
   const novelCraftPath = useSettings((s) => s.settings.novelCraftPath);
   const setAction = useWorkflow((s) => s.setAction);
   const setRange = useWorkflow((s) => s.setRange);
   const runWorkflow = useWorkflow((s) => s.run);
-  const running = useWorkflow((s) => s.running);
+  // 同类型互斥：每个 action 独立判断是否在跑，按钮只在自己那个 action
+  // 在执行时才 disabled —— 这样三个 draft 可以同时启动。
+  const rtkRunning = useIsActionRunning('draft-rtk');
+  const outlineRunning = useIsActionRunning('draft-outline');
+  const chapterOutlineRunning = useIsActionRunning('draft-chapter-outline');
+  const writeNextRunning = useIsActionRunning('write-next');
+
+  const rtk = files.find((f) => f.category === 'rtk');
+  const outline = files.find((f) => f.category === 'outline');
+  const chapterOutline = files.find((f) => f.category === 'chapter-outline');
+
   if (!meta) return <Box />;
 
   const chapters = files.filter((f) => f.category === 'chapter' && !f.isDir);
   const writtenCount = chapters.filter((c) => c.hasContent).length;
   const totalChapters = chapters.length;
-  const rtk = files.find((f) => f.category === 'rtk');
-  const outline = files.find((f) => f.category === 'outline');
-  const chapterOutline = files.find((f) => f.category === 'chapter-outline');
+  const firstUnwrittenChapter = chapters.find((c) => !c.hasContent);
 
-  const draftAction = (
-    action: WorkflowAction,
-    label: string
-  ): (() => void) => {
-    return () => {
-      if (running) {
-        notifications.show({
-          message: '当前已有 workflow 在跑，请先停止',
-          color: 'yellow'
-        });
-        return;
-      }
-      setAction(action);
-      setRange({ type: 'book' }); // draft actions 不依赖具体章节范围
-      void runWorkflow([], meta.rootPath, novelCraftPath);
-      notifications.show({
-        message: `已启动「${label}」。中栏会自动切到 Workflow Tab 看流式输出，完成后文件被覆盖更新。`,
-        color: 'indigo'
-      });
-    };
+  // 5 步状态 — 项目创建到能写正文这条主线
+  const stepDone = {
+    create: true, // 能看到这页就意味着项目已创建
+    rtk: !rtkSparse,
+    outline: !outlineSparse,
+    chapterOutline: !chapterOutlineSparse,
+    firstChapter: writtenCount >= 1
+  };
+  // 第一个未完成的步是"当前步骤"，高亮它
+  const nextStep: keyof typeof stepDone | null = (() => {
+    if (!stepDone.rtk) return 'rtk';
+    if (!stepDone.outline) return 'outline';
+    if (!stepDone.chapterOutline) return 'chapterOutline';
+    if (!stepDone.firstChapter) return 'firstChapter';
+    return null;
+  })();
+  const stepStatus = (key: keyof typeof stepDone): StepStatus =>
+    stepDone[key] ? 'done' : nextStep === key ? 'next' : 'pending';
+
+  const runDraft = (action: WorkflowAction, label: string): void => {
+    // sparse + 简述空 / 同类型互斥 都在 workflowStore.run 里二次校验，
+    // 这里就不重复了 —— 直接发起，store 拒绝时会自己弹通知。
+    setAction(action);
+    setRange({ type: 'book' });
+    void runWorkflow([], meta.rootPath, novelCraftPath);
+    notifications.show({
+      message: `已启动「${label}」。中栏会自动切到 Workflow 看流式输出。`,
+      color: 'indigo'
+    });
   };
 
-  // Determine recommended next step
-  let recommendation: JSX.Element;
-  if (writtenCount === 0 && totalChapters === 0) {
-    // 全新项目 — 引导用 AI 起草，并附手动编辑兜底
-    recommendation = (
-      <Stack gap="md">
-        <div>
-          <Text fw={600} mb={4}>
-            📌 推荐第一步：让 AI 起草骨架，你来定稿
-          </Text>
-          <Text size="sm" c="dimmed">
-            这是个全新项目。LLM 会基于你新建时填的字段（书名/题材/读者/气质/主线人物）
-            补全 3 份核心资料。每一步生成后你都能在中栏编辑改写。
-          </Text>
-        </div>
+  const runWriteNext = (): void => {
+    setAction('write-next');
+    setRange({ type: 'chapter' });
+    void runWorkflow([], meta.rootPath, novelCraftPath);
+    notifications.show({
+      message: '已启动「写下一章」。完成后新章节会自动出现在左栏。',
+      color: 'indigo'
+    });
+  };
 
-        <Stack gap={8}>
-          <DraftStepRow
-            n={1}
-            label="RTK.md"
-            desc="项目级写作规则：题材气质、文风约束、套话黑名单。所有 agent 开工前都会读这里。"
-            onDraft={draftAction('draft-rtk', '起草 RTK.md')}
-            onEdit={() => rtk && void openFile(rtk.path)}
-            running={running}
-          />
-          <DraftStepRow
-            n={2}
-            label="小说大纲.md"
-            desc="四幕结构、主线节点、情绪曲线、大伏笔。LLM 会基于 RTK 输出完整草案。"
-            onDraft={draftAction('draft-outline', '起草小说大纲')}
-            onEdit={() => outline && void openFile(outline.path)}
-            running={running}
-          />
-          <DraftStepRow
-            n={3}
-            label="章节大纲.md（前 10 章）"
-            desc="逐章节点、场景、关系变化、章末结构。LLM 会基于小说大纲输出前 10 章草案。"
-            onDraft={draftAction('draft-chapter-outline', '起草章节大纲')}
-            onEdit={() => chapterOutline && void openFile(chapterOutline.path)}
-            running={running}
-          />
-        </Stack>
-
-        <Alert color="indigo" variant="light" icon={<IconAlertCircle size={14} />}>
-          <Text size="xs">
-            <b>建议节奏</b>：每起草一份就在中栏编辑改一改（LLM 不可能比你更懂你的故事）。
-            三份资料都定稿后，再到右栏 → "写下一章" → 执行。
-            如果对 LLM 起草不满意，可以多按几次"让 AI 起草"重新生成。
-          </Text>
-        </Alert>
-      </Stack>
-    );
-  } else if (writtenCount === 0 && totalChapters > 0) {
-    // 有大纲但没正文
-    recommendation = (
-      <Stack gap="xs">
-        <Text fw={600}>📌 推荐：写第 1 章</Text>
-        <Text size="sm" c="dimmed">
-          大纲已就位（共 {totalChapters} 个章节节点）。点右栏 →
-          工作流 → "写下一章" → 选角色"写作者" → 执行。
-        </Text>
-      </Stack>
-    );
-  } else {
-    // 已经在写
-    recommendation = (
-      <Stack gap="xs">
-        <Text fw={600}>
-          📌 进度：已写 {writtenCount} / {totalChapters || writtenCount} 章
-        </Text>
-        <Text size="sm" c="dimmed">
-          左栏选章节继续编辑，或右栏点"写下一章"继续推进。
-          每写完 3-5 章建议跑一次"多角色审稿"。
-        </Text>
-      </Stack>
-    );
-  }
+  const allDone = nextStep === null;
 
   return (
     <ScrollArea h="100%" type="auto">
-      <Box p="xl" maw={680} mx="auto">
+      <Box p="xl" maw={760} mx="auto">
         <Stack gap="lg">
           <div>
             <Title order={2} mb={4}>
-              📖 《{meta.bookTitle}》已就绪
+              📖 《{meta.bookTitle}》
             </Title>
             <Text size="sm" c="dimmed">
-              共 {files.length} 个文件 · {totalChapters} 章节
+              {allDone
+                ? `进行中 · 已写 ${writtenCount} / ${totalChapters || writtenCount} 章`
+                : '完成 5 步从空白到写正文 — 每步完成后会自动打勾'}
             </Text>
           </div>
 
-          <Card withBorder padding="lg">{recommendation}</Card>
+          {/* 故事简述 —— RTK 稀疏时必填，否则可选 */}
+          {(rtkSparse || !!extraContext) && (
+            <Textarea
+              label={
+                <Group gap={6}>
+                  <Text size="sm" fw={500}>
+                    故事简述
+                  </Text>
+                  {rtkSparse ? (
+                    <Badge size="xs" color="red" variant="filled">
+                      必填
+                    </Badge>
+                  ) : (
+                    <Badge size="xs" color="gray" variant="light">
+                      可选
+                    </Badge>
+                  )}
+                </Group>
+              }
+              description={
+                rtkSparse
+                  ? '检测到 RTK.md 内容很少。先用 2-5 句话描述：题材 / 主线 / 主角 / 想要的气质。'
+                  : '想往哪个方向引导 LLM？这段会被注入到每次 workflow 的高优先级 prompt。'
+              }
+              placeholder="例：高三复读生与上大学的初恋通过广播节目重新联系，慢节奏校园青春，群像写实。"
+              value={extraContext}
+              onChange={(e) => setExtraContext(e.currentTarget.value)}
+              autosize
+              minRows={3}
+              maxRows={8}
+            />
+          )}
 
-          <Alert color="gray" variant="light" icon={<IconAlertCircle size={14} />}>
-            <Text size="xs">
-              这一面板会在你<b>没打开任何文件</b>时显示。从左栏点任意 .md
-              即可进入编辑模式；或从右栏选 workflow 操作。
-            </Text>
-          </Alert>
+          {/* 5 步引导清单 */}
+          <Stack gap={8}>
+            <ChecklistStep
+              n={1}
+              status={stepStatus('create')}
+              label="项目创建"
+              desc="生成 RTK / 大纲 / 章节大纲 / 人物档案等基础文件骨架。"
+            />
+            <ChecklistStep
+              n={2}
+              status={stepStatus('rtk')}
+              label="RTK.md（写作规则）"
+              desc="题材气质、文风约束、套话黑名单。所有 agent 开工前都会读它。"
+              primary={{
+                label: rtkRunning
+                  ? '执行中…'
+                  : stepDone.rtk
+                    ? '重新起草'
+                    : '让 AI 起草',
+                icon: <IconSparkles size={12} />,
+                onClick: () => runDraft('draft-rtk', '起草 RTK.md'),
+                disabled: rtkRunning
+              }}
+              secondary={
+                rtk
+                  ? {
+                      label: stepDone.rtk ? '继续编辑' : '手动编辑',
+                      icon: <IconPencil size={12} />,
+                      onClick: () => void openFile(rtk.path)
+                    }
+                  : undefined
+              }
+            />
+            <ChecklistStep
+              n={3}
+              status={stepStatus('outline')}
+              label="小说大纲.md"
+              desc="四幕结构、主线节点、情绪曲线、大伏笔。LLM 基于 RTK 输出完整草案。"
+              primary={{
+                label: outlineRunning
+                  ? '执行中…'
+                  : stepDone.outline
+                    ? '重新起草'
+                    : '让 AI 起草',
+                icon: <IconSparkles size={12} />,
+                onClick: () => runDraft('draft-outline', '起草小说大纲'),
+                disabled: outlineRunning
+              }}
+              secondary={
+                outline
+                  ? {
+                      label: stepDone.outline ? '继续编辑' : '手动编辑',
+                      icon: <IconPencil size={12} />,
+                      onClick: () => void openFile(outline.path)
+                    }
+                  : undefined
+              }
+            />
+            <ChecklistStep
+              n={4}
+              status={stepStatus('chapterOutline')}
+              label="章节大纲.md（前 10 章）"
+              desc="逐章节点、场景、关系变化、章末结构。LLM 基于小说大纲输出。"
+              primary={{
+                label: chapterOutlineRunning
+                  ? '执行中…'
+                  : stepDone.chapterOutline
+                    ? '重新起草'
+                    : '让 AI 起草',
+                icon: <IconSparkles size={12} />,
+                onClick: () => runDraft('draft-chapter-outline', '起草章节大纲'),
+                disabled: chapterOutlineRunning
+              }}
+              secondary={
+                chapterOutline
+                  ? {
+                      label: stepDone.chapterOutline ? '继续编辑' : '手动编辑',
+                      icon: <IconPencil size={12} />,
+                      onClick: () => void openFile(chapterOutline.path)
+                    }
+                  : undefined
+              }
+            />
+            <ChecklistStep
+              n={5}
+              status={stepStatus('firstChapter')}
+              label={stepDone.firstChapter ? '继续写后续章节' : '写第 1 章'}
+              desc={
+                stepDone.firstChapter
+                  ? `已写 ${writtenCount} / ${totalChapters || writtenCount} 章。继续推进或左侧选章节编辑。`
+                  : '让 AI 按章节大纲写出第 1 章的完整正文，写完后自动出现在左栏。'
+              }
+              primary={{
+                label: writeNextRunning
+                  ? '执行中…'
+                  : stepDone.firstChapter
+                    ? '写下一章'
+                    : '开始写第 1 章',
+                icon: <IconPencilPlus size={12} />,
+                onClick: runWriteNext,
+                disabled: writeNextRunning || !stepDone.chapterOutline
+              }}
+              secondary={
+                firstUnwrittenChapter || writtenCount > 0
+                  ? {
+                      label: '打开章节列表',
+                      icon: <IconPencil size={12} />,
+                      onClick: () => {
+                        // 没正文 → 打开第一个未写章节文件让用户看占位；
+                        // 有正文 → 打开已写的最后一章
+                        const target = stepDone.firstChapter
+                          ? chapters.filter((c) => c.hasContent).at(-1)
+                          : firstUnwrittenChapter;
+                        if (target) void openFile(target.path);
+                      }
+                    }
+                  : undefined
+              }
+            />
+          </Stack>
+
+          {allDone && (
+            <Alert color="green" variant="light" icon={<IconCheck size={14} />}>
+              <Text size="xs">
+                🎉 引导阶段完成。后续在右栏「工作流」继续推进：写下一章 / 章末同步 /
+                每 3-5 章跑一次多角色审稿。
+              </Text>
+            </Alert>
+          )}
+
+          {!allDone && (
+            <Alert color="gray" variant="light" icon={<IconAlertCircle size={14} />}>
+              <Text size="xs">
+                每完成一步会自动打勾，<b>已完成的步骤随时可以点「继续编辑」</b>修改。
+                所有文件都是磁盘上的 markdown，VSCode / Typora 也能直接打开。
+              </Text>
+            </Alert>
+          )}
         </Stack>
       </Box>
     </ScrollArea>

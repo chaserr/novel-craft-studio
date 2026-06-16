@@ -11,7 +11,8 @@ import {
   Tabs,
   Badge,
   Box,
-  Alert
+  Alert,
+  SegmentedControl
 } from '@mantine/core';
 import { IconDownload, IconLogin2, IconAlertCircle } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
@@ -51,8 +52,10 @@ const PROVIDER_HELP_APIKEY: Record<ProviderId, string> = {
 
 export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
   const novelCraftPath = useSettings((s) => s.settings.novelCraftPath);
+  const activeProvider = useSettings((s) => s.settings.activeProvider);
   const hasApiKey = useSettings((s) => s.hasApiKey);
   const setPath = useSettings((s) => s.setNovelCraftPath);
+  const setActiveProvider = useSettings((s) => s.setActiveProvider);
   const setKey = useSettings((s) => s.setApiKey);
 
   const [path, setLocalPath] = useState(novelCraftPath);
@@ -189,6 +192,26 @@ export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
             DeepSeek 没有 OAuth，只走 API key。
           </Text>
         </Alert>
+
+        {/* 默认 provider —— 聊天框/工作流默认走它 */}
+        <Box>
+          <Text size="xs" fw={500} mb={4}>
+            默认使用
+          </Text>
+          <Text size="xs" c="dimmed" mb={6}>
+            聊天框和工作流默认调用这个 provider。下面的 tab 只是分别配置每个 provider 的登录态，并不会切换默认。
+          </Text>
+          <SegmentedControl
+            size="xs"
+            fullWidth
+            value={activeProvider}
+            onChange={(v) => void setActiveProvider(v as ProviderId)}
+            data={(Object.keys(PROVIDER_LABELS) as ProviderId[]).map((p) => ({
+              value: p,
+              label: PROVIDER_LABELS[p]
+            }))}
+          />
+        </Box>
 
         <Tabs defaultValue="anthropic">
           <Tabs.List>

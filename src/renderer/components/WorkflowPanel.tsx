@@ -16,7 +16,6 @@ import {
 } from '@mantine/core';
 import {
   IconPlayerPlay,
-  IconPlayerStop,
   IconAlertCircle,
   IconPencilPlus,
   IconArrowRight,
@@ -24,7 +23,7 @@ import {
   IconReportSearch,
   IconWand
 } from '@tabler/icons-react';
-import { useWorkflow } from '../stores/workflowStore';
+import { useIsActionRunning, useWorkflow } from '../stores/workflowStore';
 import { useProject } from '../stores/projectStore';
 import { useSettings } from '../stores/settingsStore';
 import { AGENTS, agentLabel } from '../lib/agents';
@@ -48,19 +47,23 @@ export default function WorkflowPanel(): JSX.Element {
   const action = useWorkflow((s) => s.action);
   const roles = useWorkflow((s) => s.roles);
   const range = useWorkflow((s) => s.range);
-  const running = useWorkflow((s) => s.running);
-  const error = useWorkflow((s) => s.error);
   const setAction = useWorkflow((s) => s.setAction);
   const toggleRole = useWorkflow((s) => s.toggleRole);
   const setRange = useWorkflow((s) => s.setRange);
   const runWorkflow = useWorkflow((s) => s.run);
-  const cancelWorkflow = useWorkflow((s) => s.cancel);
+  // 同类型互斥：只关心当前选中的 action 是否已经在跑
+  const sameActionRunning = useIsActionRunning(action);
 
   const meta = useProject((s) => s.meta);
   const files = useProject((s) => s.files);
   const activeFilePath = useProject((s) => s.activeFilePath);
   const selected = useProject((s) => s.selectedChapterPaths);
+  const rtkSparse = useProject((s) => s.rtkSparse);
+  const extraContext = useProject((s) => s.extraContext);
   const novelCraftPath = useSettings((s) => s.settings.novelCraftPath);
+
+  // RTK 是否被锁住：项目稀疏 + 用户没填故事简述 → 任何 workflow 都没意义
+  const lockedBySparse = rtkSparse && !extraContext.trim();
 
   // Sort chapter files for various range UIs
   const chapters = useMemo(
@@ -102,7 +105,9 @@ export default function WorkflowPanel(): JSX.Element {
     !!meta &&
     !!novelCraftPath &&
     resolvedPaths.length > 0 &&
-    (action === 'free-chat' || roles.length > 0);
+    (action === 'free-chat' || roles.length > 0) &&
+    !lockedBySparse &&
+    !sameActionRunning;
 
   const handleRun = (): void => {
     if (!meta || !novelCraftPath) return;
@@ -122,9 +127,24 @@ export default function WorkflowPanel(): JSX.Element {
   return (
     <ScrollArea h="100%" type="auto">
       <Stack gap="md" p="sm">
-        {error && (
-          <Alert color="red" icon={<IconAlertCircle size={16} />} variant="light">
-            {error}
+        {lockedBySparse && (
+          <Alert color="yellow" icon={<IconAlertCircle size={16} />} variant="light">
+            <Text size="xs" fw={500} mb={4}>
+              项目信息为空，所有 workflow 都被锁住
+            </Text>
+            <Text size="xs">
+              RTK.md 里书名 / 核心气质 / 主线人物 至少 2 项是空。请到中栏「引导」页
+              填写「故事简述」（2-5 句即可），再回来执行。
+            </Text>
+          </Alert>
+        )}
+
+        {sameActionRunning && !lockedBySparse && (
+          <Alert color="blue" icon={<IconAlertCircle size={16} />} variant="light">
+            <Text size="xs">
+              当前 action「{action}」已经在执行中。可以切到中栏 Workflow Tab
+              查看进度，或选别的 action 同时跑。
+            </Text>
           </Alert>
         )}
 
@@ -234,28 +254,16 @@ export default function WorkflowPanel(): JSX.Element {
         <Divider />
 
         {/* ------------- 执行 ------------- */}
-        {running ? (
-          <Button
-            color="red"
-            variant="light"
-            leftSection={<IconPlayerStop size={14} />}
-            onClick={() => void cancelWorkflow()}
-            fullWidth
-          >
-            停止
-          </Button>
-        ) : (
-          <Button
-            leftSection={<IconPlayerPlay size={14} />}
-            onClick={handleRun}
-            disabled={!canExecute}
-            fullWidth
-          >
-            执行
-          </Button>
-        )}
+        <Button
+          leftSection={<IconPlayerPlay size={14} />}
+          onClick={handleRun}
+          disabled={!canExecute}
+          fullWidth
+        >
+          执行
+        </Button>
 
-        {!canExecute && !running && resolvedPaths.length === 0 && (
+        {!canExecute && !sameActionRunning && resolvedPaths.length === 0 && (
           <Text size="xs" c="orange">
             ⚠️ 当前范围没解析到章节文件
           </Text>

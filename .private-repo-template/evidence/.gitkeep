@@ -1,0 +1,2 @@
+# Per-incident evidence goes under evidence/<incident-id>/
+# Keep this file so the empty folder is tracked.
