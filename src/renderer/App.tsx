@@ -129,7 +129,11 @@ export default function App(): JSX.Element {
       </AppShell.Aside>
 
       <AppShell.Main style={{ height: 'calc(100vh - 48px)' }}>
-        <CenterPane />
+        <CenterPane
+          openSettings={() => setSettingsOpen(true)}
+          openNewProject={() => setNewProjectOpen(true)}
+          openExistingProject={() => void handleOpen()}
+        />
       </AppShell.Main>
 
       <SettingsModal opened={settingsOpen} onClose={() => setSettingsOpen(false)} />
