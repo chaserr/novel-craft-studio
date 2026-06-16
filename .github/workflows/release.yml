@@ -95,15 +95,17 @@ jobs:
           fi
           git clone --depth 1 "https://x-access-token:${LEDGER_PAT}@github.com/${LEDGER_REPO}.git" ledger
           cd ledger
-          mkdir -p releases
+          # Per-project subdir. Project name = the public repo's name
+          # (e.g. "chaserr/novel-craft-studio" -> "novel-craft-studio").
+          PROJECT="${GITHUB_REPOSITORY#*/}"
+          mkdir -p "$PROJECT/releases"
+          LEDGER="$PROJECT/releases/token-ledger.md"
           LINE="| ${TAG} | \`${TOKEN}\` | ${TS} | ${GITHUB_SHA} | ${GITHUB_RUN_ID} |"
-          # ensure ledger header exists
-          LEDGER=releases/token-ledger.md
           if [ ! -f "$LEDGER" ]; then
             {
-              echo "# Release Token Ledger"
+              echo "# Release Token Ledger — ${PROJECT}"
               echo ""
-              echo "Each public release of novel-craft-studio gets a unique BUILD_FINGERPRINT."
+              echo "Each public release of ${PROJECT} gets a unique BUILD_FINGERPRINT."
               echo "If a binary is found in commercial use, look up the token to identify the"
               echo "release it was derived from."
               echo ""
@@ -115,7 +117,7 @@ jobs:
           git -c user.name="release-bot" -c user.email="release-bot@users.noreply.github.com" \
             add "$LEDGER"
           git -c user.name="release-bot" -c user.email="release-bot@users.noreply.github.com" \
-            commit -m "record ${TAG} → ${TOKEN}"
+            commit -m "record ${PROJECT} ${TAG} → ${TOKEN}"
           git push origin HEAD
 
   build:
