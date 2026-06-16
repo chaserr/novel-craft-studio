@@ -5,6 +5,7 @@ import { registerLlmIpc } from './ipc/llm';
 import { registerProjectIpc } from './ipc/project';
 import { registerFilesIpc } from './ipc/files';
 import { registerWorkflowIpc } from './ipc/workflow';
+import { registerChatsIpc } from './ipc/chats';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -59,6 +60,7 @@ app.whenReady().then(() => {
   registerProjectIpc();
   registerLlmIpc(() => mainWindow);
   registerWorkflowIpc(() => mainWindow);
+  registerChatsIpc();
   createWindow();
 
   app.on('activate', () => {
