@@ -109,9 +109,11 @@ export interface LlmStreamRequest {
 
 export interface LlmStreamEvent {
   requestId: string;
-  type: 'chunk' | 'done' | 'error';
+  type: 'chunk' | 'done' | 'error' | 'session';
   delta?: string;
   message?: string;
+  /** Codex session id from `thread.started`, when adapter detects it. */
+  sessionId?: string;
 }
 
 /* ------------------------------------------------------------------------ */

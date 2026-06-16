@@ -6,8 +6,12 @@ export interface StreamChatParams {
   model: string;
   systemPrompt: string;
   messages: ChatMessage[];
+  /** Codex only: continue an existing ~/.codex/sessions/ thread by id. */
+  resumeSessionId?: string;
   abortSignal: AbortSignal;
   onChunk: (delta: string) => void;
+  /** Codex only: fires when adapter observes the codex thread/session id. */
+  onSessionId?: (sessionId: string) => void;
   onDone: () => void;
   onError: (err: Error) => void;
 }

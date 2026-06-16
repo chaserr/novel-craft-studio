@@ -143,17 +143,17 @@ export async function streamViaCodexCli(p: StreamChatParams): Promise<void> {
     return;
   }
 
-  // Codex exec takes the prompt as argv. Embed system prompt as the prologue.
-  const fullPrompt =
-    p.systemPrompt +
-    '\n\n---\n\n' +
-    p.messages
-      .filter((m) => m.role !== 'system')
-      .map((m) => m.content)
-      .join('\n\n');
+  const isResume = !!p.resumeSessionId;
 
-  const args = [
-    'exec',
+  // When resuming, only send the *latest* user message (codex remembers context).
+  // When new, embed system prompt + all user messages as prologue.
+  const userMessages = p.messages.filter((m) => m.role !== 'system');
+  const newestUser = userMessages[userMessages.length - 1]?.content ?? '';
+  const fullPrompt = isResume
+    ? newestUser
+    : p.systemPrompt + '\n\n---\n\n' + userMessages.map((m) => m.content).join('\n\n');
+
+  const baseArgs = [
     '--json',
     '--skip-git-repo-check',
     '--sandbox',
@@ -162,8 +162,14 @@ export async function streamViaCodexCli(p: StreamChatParams): Promise<void> {
     '-c',
     'service_tier="fast"'
   ];
+  const args = isResume
+    ? ['exec', 'resume', ...baseArgs]
+    : ['exec', ...baseArgs];
   if (p.model) {
     args.push('-m', p.model);
+  }
+  if (isResume) {
+    args.push(p.resumeSessionId!);
   }
   args.push(fullPrompt);
 
@@ -173,6 +179,10 @@ export async function streamViaCodexCli(p: StreamChatParams): Promise<void> {
 function parseCodexChunk(line: string, p: StreamChatParams): void {
   try {
     const obj = JSON.parse(line);
+    // Capture session id from thread.started for chat session resume.
+    if (obj?.type === 'thread.started' && obj.thread_id) {
+      p.onSessionId?.(obj.thread_id);
+    }
     // codex exec --json (v0.140+) emits batch item.completed instead of deltas.
     // We treat it as one chunk for our UI (no true streaming, but works).
     if (

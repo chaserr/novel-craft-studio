@@ -23,7 +23,6 @@ import {
   IconAlertCircle,
   IconMessage,
   IconPlus,
-  IconTrash,
   IconChevronDown,
   IconRobot
 } from '@tabler/icons-react';
@@ -53,7 +52,6 @@ export default function ChatPanel(): JSX.Element {
   const loadList = useChat((s) => s.loadList);
   const newSession = useChat((s) => s.newSession);
   const selectSession = useChat((s) => s.selectSession);
-  const deleteSession = useChat((s) => s.deleteSession);
   const send = useChat((s) => s.send);
   const cancel = useChat((s) => s.cancel);
   const clearError = useChat((s) => s.clearError);
@@ -66,8 +64,8 @@ export default function ChatPanel(): JSX.Element {
   const activeFileContent = useProject((s) => s.activeFileContent);
 
   useEffect(() => {
-    void loadList();
-  }, [loadList]);
+    void loadList(projectMeta?.rootPath);
+  }, [loadList, projectMeta?.rootPath]);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -93,7 +91,7 @@ export default function ChatPanel(): JSX.Element {
   };
 
   const handleNewSession = (): void => {
-    void newSession(projectMeta?.rootPath);
+    newSession();
   };
 
   return (
@@ -104,7 +102,6 @@ export default function ChatPanel(): JSX.Element {
           sessions={sessions}
           current={current?.id ?? null}
           onSelect={(id) => void selectSession(id)}
-          onDelete={(id) => void deleteSession(id)}
         />
         <Group gap={4}>
           <Tooltip label="新建对话">
@@ -248,14 +245,12 @@ interface SessionPickerProps {
   sessions: ChatSessionSummary[];
   current: string | null;
   onSelect: (id: string) => void;
-  onDelete: (id: string) => void;
 }
 
 function SessionPicker({
   sessions,
   current,
-  onSelect,
-  onDelete
+  onSelect
 }: SessionPickerProps): JSX.Element {
   const currentSess = sessions.find((s) => s.id === current);
   return (
@@ -274,23 +269,7 @@ function SessionPicker({
           <Menu.Item disabled>还没有对话历史</Menu.Item>
         ) : (
           sessions.slice(0, 50).map((s) => (
-            <Menu.Item
-              key={s.id}
-              onClick={() => onSelect(s.id)}
-              rightSection={
-                <ActionIcon
-                  size="xs"
-                  variant="subtle"
-                  color="red"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (confirm(`删除对话「${s.title}」？`)) onDelete(s.id);
-                  }}
-                >
-                  <IconTrash size={12} />
-                </ActionIcon>
-              }
-            >
+            <Menu.Item key={s.id} onClick={() => onSelect(s.id)}>
               <Text size="sm" truncate="end">
                 {s.title}
               </Text>

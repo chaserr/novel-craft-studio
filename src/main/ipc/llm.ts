@@ -19,6 +19,7 @@ export function registerLlmIpc(getWindow: () => BrowserWindow | null): void {
         model: string;
         systemPrompt: string;
         messages: ChatMessage[];
+        resumeSessionId?: string;
       }
     ) => {
       const send = (e: LlmStreamEvent): void => {
@@ -47,9 +48,12 @@ export function registerLlmIpc(getWindow: () => BrowserWindow | null): void {
           model: req.model || adapter.defaultModel,
           systemPrompt: req.systemPrompt,
           messages: req.messages,
+          resumeSessionId: req.resumeSessionId,
           abortSignal: controller.signal,
           onChunk: (delta) =>
             send({ requestId: req.requestId, type: 'chunk', delta }),
+          onSessionId: (sessionId) =>
+            send({ requestId: req.requestId, type: 'session', sessionId }),
           onDone: () => send({ requestId: req.requestId, type: 'done' }),
           onError: (err) =>
             send({

@@ -63,6 +63,7 @@ const api = {
       model: string;
       systemPrompt: string;
       messages: ChatMessage[];
+      resumeSessionId?: string;
     }): Promise<void> => ipcRenderer.invoke('llm:stream', req),
     cancel: (requestId: string): Promise<void> =>
       ipcRenderer.invoke('llm:cancel', requestId),
@@ -92,12 +93,12 @@ const api = {
     }
   },
 
-  /* ---------- chat sessions (persisted) ---------- */
-  chats: {
-    list: (): Promise<ChatSessionSummary[]> => ipcRenderer.invoke('chats:list'),
-    get: (id: string): Promise<ChatSession | null> => ipcRenderer.invoke('chats:get', id),
-    save: (session: ChatSession): Promise<void> => ipcRenderer.invoke('chats:save', session),
-    delete: (id: string): Promise<void> => ipcRenderer.invoke('chats:delete', id)
+  /* ---------- chat history (read-only from codex sessions) ---------- */
+  codexSessions: {
+    list: (projectRoot?: string): Promise<ChatSessionSummary[]> =>
+      ipcRenderer.invoke('codex-sessions:list', projectRoot),
+    get: (id: string): Promise<ChatSession | null> =>
+      ipcRenderer.invoke('codex-sessions:get', id)
   }
 };
 

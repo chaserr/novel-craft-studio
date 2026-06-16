@@ -1,18 +1,31 @@
+/**
+ * Chat store — backed by codex's own ~/.codex/sessions/ history.
+ * We don't persist anything ourselves; codex CLI writes its own jsonl files
+ * when we spawn it. We just list/parse them.
+ *
+ * Flow:
+ *  - new chat: send() with no current session → codex spawns, emits thread_id → bind it
+ *  - continue chat: send() with current session id → calls `codex exec resume <id>`
+ *  - load from history: selectSession() → read jsonl, hydrate UI
+ *
+ * Note: this currently only manages ChatGPT/Codex sessions. Claude / DeepSeek
+ * runs in chat are ephemeral (lost on app restart) — separate feature later.
+ */
+
 import { create } from 'zustand';
 import type {
   ChatMessage,
   ChatSession,
   ChatSessionSummary,
-  LlmStreamEvent,
-  ProviderId
+  LlmStreamEvent
 } from '../../shared/types';
 import { api } from '../lib/ipc';
 import { useSettings } from './settingsStore';
 
 interface ChatState {
-  /** All persisted sessions (summary) sorted by updatedAt desc. */
+  /** Codex sessions (from ~/.codex/sessions), summary only. */
   sessions: ChatSessionSummary[];
-  /** Currently active session (full). null = no session loaded yet. */
+  /** Currently active session. null = no session yet (next send starts a new one). */
   current: ChatSession | null;
 
   streaming: boolean;
@@ -20,11 +33,9 @@ interface ChatState {
   error: string | null;
 
   // ----- session ops -----
-  loadList: () => Promise<void>;
-  newSession: (projectRoot?: string) => Promise<void>;
+  loadList: (projectRoot?: string) => Promise<void>;
+  newSession: () => void;
   selectSession: (id: string) => Promise<void>;
-  deleteSession: (id: string) => Promise<void>;
-  renameSession: (id: string, title: string) => Promise<void>;
 
   // ----- chat ops -----
   send: (userText: string, systemPrompt: string) => Promise<void>;
@@ -34,29 +45,6 @@ interface ChatState {
 
 function genId(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
-
-function autoTitle(text: string): string {
-  const t = text.trim().replace(/\s+/g, ' ').slice(0, 40);
-  return t || '新对话';
-}
-
-function makeSession(
-  provider: ProviderId,
-  model: string,
-  projectRoot?: string
-): ChatSession {
-  const now = Date.now();
-  return {
-    id: genId(),
-    title: '新对话',
-    provider,
-    model,
-    messages: [],
-    projectRoot,
-    createdAt: now,
-    updatedAt: now
-  };
 }
 
 let unsubscribe: (() => void) | null = null;
@@ -69,7 +57,11 @@ function ensureListener(
   unsubscribe = api.llm.onEvent((e: LlmStreamEvent) => {
     const s = state();
     if (!s.current || e.requestId !== s.activeRequestId) return;
-    if (e.type === 'chunk' && e.delta) {
+    if (e.type === 'session' && e.sessionId) {
+      // Codex told us the session id; bind it so next send uses resume
+      const updated = { ...s.current, id: e.sessionId };
+      set({ current: updated });
+    } else if (e.type === 'chunk' && e.delta) {
       const msgs = [...s.current.messages];
       const last = msgs[msgs.length - 1];
       if (last?.role === 'assistant') {
@@ -80,13 +72,10 @@ function ensureListener(
       const updated = { ...s.current, messages: msgs, updatedAt: Date.now() };
       set({ current: updated });
     } else if (e.type === 'done') {
-      const updated = s.current
-        ? { ...s.current, updatedAt: Date.now() }
-        : s.current;
-      set({ streaming: false, activeRequestId: null, current: updated });
-      if (updated) {
-        void api.chats.save(updated).then(() => void state().loadList());
-      }
+      set({ streaming: false, activeRequestId: null });
+      // Refresh list — codex just appended/created a jsonl
+      const projectRoot = state().current?.projectRoot;
+      void state().loadList(projectRoot);
     } else if (e.type === 'error') {
       set({
         streaming: false,
@@ -106,52 +95,48 @@ export const useChat = create<ChatState>((set, get) => {
     activeRequestId: null,
     error: null,
 
-    loadList: async () => {
-      const list = await api.chats.list();
+    loadList: async (projectRoot) => {
+      const list = await api.codexSessions.list(projectRoot);
       set({ sessions: list });
     },
 
-    newSession: async (projectRoot) => {
+    newSession: () => {
       const s = useSettings.getState().settings;
-      const sess = makeSession(s.activeProvider, s.models[s.activeProvider], projectRoot);
-      set({ current: sess, error: null });
-      await api.chats.save(sess);
-      await get().loadList();
+      // Pending session — id is empty until codex emits thread_id on first send
+      const now = Date.now();
+      set({
+        current: {
+          id: '',
+          title: '新对话',
+          provider: s.activeProvider,
+          model: s.models[s.activeProvider],
+          messages: [],
+          createdAt: now,
+          updatedAt: now
+        },
+        error: null
+      });
     },
 
     selectSession: async (id) => {
-      const sess = await api.chats.get(id);
+      const sess = await api.codexSessions.get(id);
       if (sess) set({ current: sess, error: null });
-    },
-
-    deleteSession: async (id) => {
-      await api.chats.delete(id);
-      const cur = get().current;
-      if (cur?.id === id) set({ current: null });
-      await get().loadList();
-    },
-
-    renameSession: async (id, title) => {
-      const sess = await api.chats.get(id);
-      if (!sess) return;
-      sess.title = title;
-      sess.updatedAt = Date.now();
-      await api.chats.save(sess);
-      if (get().current?.id === id) set({ current: sess });
-      await get().loadList();
     },
 
     send: async (userText, systemPrompt) => {
       if (get().streaming) return;
       let cur = get().current;
       if (!cur) {
-        await get().newSession();
+        get().newSession();
         cur = get().current!;
       }
 
       const userMsg: ChatMessage = { role: 'user', content: userText };
       const messages = [...cur.messages, userMsg];
-      const title = cur.messages.length === 0 ? autoTitle(userText) : cur.title;
+      const title =
+        cur.messages.length === 0
+          ? userText.trim().slice(0, 40) || '新对话'
+          : cur.title;
       const updated: ChatSession = {
         ...cur,
         title,
@@ -165,7 +150,6 @@ export const useChat = create<ChatState>((set, get) => {
         activeRequestId: requestId,
         error: null
       });
-      void api.chats.save(updated);
 
       try {
         await api.llm.stream({
@@ -173,7 +157,10 @@ export const useChat = create<ChatState>((set, get) => {
           provider: cur.provider,
           model: cur.model,
           systemPrompt,
-          messages
+          messages,
+          // If we have a session id from codex (assigned during a previous send),
+          // resume the existing codex thread instead of starting new.
+          resumeSessionId: cur.id || undefined
         });
       } catch (err) {
         set({
