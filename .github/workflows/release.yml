@@ -25,6 +25,9 @@ jobs:
       tag: ${{ steps.gen.outputs.tag }}
       timestamp: ${{ steps.gen.outputs.timestamp }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Resolve tag
         id: tag
         run: |
@@ -33,6 +36,23 @@ jobs:
           else
             echo "tag=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
           fi
+
+      # Guard against the failure mode we hit on first try: electron-builder
+      # publishes to a release named after package.json's version, NOT the
+      # git tag. If they disagree, the Release page shows v0.X but the binary's
+      # BUILD_FINGERPRINT and the ledger row reference v0.Y — confusing for
+      # anyone tracing piracy back to a release.
+      - name: Verify git tag matches package.json version
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG="${{ steps.tag.outputs.tag }}"
+          EXPECTED="v$PKG_VERSION"
+          if [ "$TAG" != "$EXPECTED" ]; then
+            echo "::error::Git tag '$TAG' does not match package.json version '$EXPECTED'."
+            echo "::error::Either bump package.json to match the tag, or retag to match the version."
+            exit 1
+          fi
+          echo "ok: tag $TAG matches package.json $EXPECTED"
 
       - name: Generate token
         id: gen
