@@ -156,9 +156,9 @@ export async function streamViaCodexCli(p: StreamChatParams): Promise<void> {
     'exec',
     '--json',
     '--skip-git-repo-check',
-    '--full-auto',
-    // service_tier "default" in user's config.toml is rejected by 0.122.0;
-    // force a valid value to avoid load error.
+    '--sandbox',
+    'workspace-write',
+    // service_tier "default" in user's config.toml may not parse; force valid value
     '-c',
     'service_tier="fast"'
   ];
@@ -173,8 +173,17 @@ export async function streamViaCodexCli(p: StreamChatParams): Promise<void> {
 function parseCodexChunk(line: string, p: StreamChatParams): void {
   try {
     const obj = JSON.parse(line);
-    // text delta events
-    if (obj?.type === 'item.added' && obj.item?.type === 'text' && obj.item.text) {
+    // codex exec --json (v0.140+) emits batch item.completed instead of deltas.
+    // We treat it as one chunk for our UI (no true streaming, but works).
+    if (
+      obj?.type === 'item.completed' &&
+      (obj.item?.type === 'agent_message' || obj.item?.type === 'text') &&
+      obj.item?.text
+    ) {
+      p.onChunk(obj.item.text);
+    }
+    // legacy delta events (in case future CLI brings them back)
+    else if (obj?.type === 'item.added' && obj.item?.type === 'text' && obj.item.text) {
       p.onChunk(obj.item.text);
     } else if (obj?.type === 'item.delta' && obj.delta) {
       p.onChunk(typeof obj.delta === 'string' ? obj.delta : obj.delta.text ?? '');
