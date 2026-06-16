@@ -150,8 +150,11 @@ export const useWorkflow = create<WorkflowState>((set, get) => {
         model: settings.models[settings.activeProvider]
       };
       const requestId = genId();
-      const subtasks: WorkflowSubtask[] = config.roles.map((r) => ({
-        id: genId(),
+      // IMPORTANT: subtask id must match main process pattern `${requestId}-${idx}`
+      // (see src/main/ipc/workflow.ts tappedTasks loop). Otherwise events from main
+      // never update the right subtask and UI stays stuck on "待执行".
+      const subtasks: WorkflowSubtask[] = config.roles.map((r, idx) => ({
+        id: `${requestId}-${idx}`,
         role: r,
         status: 'pending',
         output: ''

@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type {
   AppSettings,
   ChatMessage,
+  ChatSession,
+  ChatSessionSummary,
   LlmStreamEvent,
   NewProjectFields,
   ProjectFileEntry,
@@ -88,6 +90,14 @@ const api = {
       ipcRenderer.on('workflow:event', handler);
       return () => ipcRenderer.removeListener('workflow:event', handler);
     }
+  },
+
+  /* ---------- chat sessions (persisted) ---------- */
+  chats: {
+    list: (): Promise<ChatSessionSummary[]> => ipcRenderer.invoke('chats:list'),
+    get: (id: string): Promise<ChatSession | null> => ipcRenderer.invoke('chats:get', id),
+    save: (session: ChatSession): Promise<void> => ipcRenderer.invoke('chats:save', session),
+    delete: (id: string): Promise<void> => ipcRenderer.invoke('chats:delete', id)
   }
 };
 

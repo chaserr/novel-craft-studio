@@ -229,3 +229,29 @@ export interface AgentMeta {
   /** 一句话职责描述（UI 上的 tooltip） */
   shortDescription: string;
 }
+
+/* ------------------------------------------------------------------------ */
+/*                            Chat sessions                                  */
+/* ------------------------------------------------------------------------ */
+
+/** Persisted multi-turn chat session (Codex-style). One JSON file per session. */
+export interface ChatSession {
+  id: string;
+  /** Auto-generated from first user message; user can rename. */
+  title: string;
+  provider: ProviderId;
+  model: string;
+  messages: ChatMessage[];
+  /** Optional: bind a session to a project root for context injection. */
+  projectRoot?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ChatSessionSummary {
+  id: string;
+  title: string;
+  provider: ProviderId;
+  messageCount: number;
+  updatedAt: number;
+}
