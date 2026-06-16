@@ -1,5 +1,34 @@
 # Changelog
 
+## [v0.2.0] - 2026-06-16
+
+> Orchid 的第一个正式版（原 novel-craft-studio）。重命名、协议变更、引入反盗版指纹。
+
+### Rebrand & licensing
+
+- 应用更名为 **Orchid**（原 `novel-craft-studio`），新增 app icon
+- 协议从 **MIT** 改为 **PolyForm Noncommercial 1.0.0**
+  - 允许：个人学习、研究、修改、非商业传播、公益/学校/政府使用
+  - 禁止（除另行书面授权）：销售 / 付费 SaaS / 商业贴牌 / 二次包装售卖 / 移除指纹
+- 顶栏新增 About 模态（`i` 按钮）：展示版本号、构建指纹、协议摘要、上游链接、商业授权入口
+
+### Anti-misuse fingerprinting
+
+- 每次 release 由 CI 注入唯一 `BUILD_FINGERPRINT`（含 release 私钥盐 hash）
+- 嵌入位置：启动 banner、`app:build-info` IPC、所有 LLM system prompt（含 5 个零宽字符 + 可 grep 的诱饵句）
+- 私有 ledger 仓库自动追加 `tag → token → commit → run_id` 映射，用于追溯二次分发来源
+
+### Chat & workflow
+
+- chat 改为复用 Codex CLI sessions（不再自建持久化）
+- workflow subtask id 修复：UI 不再卡在"待执行"
+- Codex v0.140+ batch output 解析适配
+
+### CI
+
+- release workflow 修复：先 `electron-vite build` 再 `electron-builder`
+- 新增 git tag 必须等于 `v{package.json.version}` 的一致性 gate
+
 ## [v0.1.0] - 2026-06-15
 
 ### 首次发布
