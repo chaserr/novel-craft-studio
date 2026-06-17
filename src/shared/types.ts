@@ -39,6 +39,12 @@ export interface ProjectFileEntry {
     | 'chapter'
     | 'other';
   isDir: boolean;
+  /**
+   * 文件所在的顶层子目录名（项目根下第一层）。null = 文件直接在项目根，
+   * 字符串 = 在该子目录里。侧栏按这个动态分组：任何子目录自动成为一个分组，
+   * 标题就是目录名。
+   */
+  subDir?: string | null;
   /** Only meaningful for chapter files. 1-based. */
   chapterNumber?: number;
   /** Whether the chapter file actually has body content (not just header). */

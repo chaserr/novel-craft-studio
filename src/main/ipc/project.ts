@@ -36,7 +36,12 @@ const CHAPTER_NUM_RE = /-第(\d+)章-/;
 async function scanProject(rootPath: string): Promise<ProjectFileEntry[]> {
   const entries: ProjectFileEntry[] = [];
 
-  async function walk(dir: string, depth: number): Promise<void> {
+  async function walk(
+    dir: string,
+    depth: number,
+    /** 顶层子目录名（depth>=1 时为该文件所属的根下一级目录） */
+    subDir: string | null
+  ): Promise<void> {
     const names = await readdir(dir);
     for (const name of names) {
       if (name.startsWith('.')) continue;
@@ -49,7 +54,8 @@ async function scanProject(rootPath: string): Promise<ProjectFileEntry[]> {
         relPath: relative(rootPath, abs),
         name,
         category: cat,
-        isDir
+        isDir,
+        subDir: depth === 0 ? null : subDir
       };
       if (cat === 'chapter') {
         const m = CHAPTER_NUM_RE.exec(name);
@@ -63,11 +69,15 @@ async function scanProject(rootPath: string): Promise<ProjectFileEntry[]> {
         }
       }
       entries.push(entry);
-      if (isDir && depth < 2) await walk(abs, depth + 1);
+      // 递归到 depth=8 足够深的嵌套（章节按卷分目录、人物分小队等都装得下）。
+      if (isDir && depth < 8) {
+        const childSubDir = depth === 0 ? name : subDir;
+        await walk(abs, depth + 1, childSubDir);
+      }
     }
   }
 
-  await walk(rootPath, 0);
+  await walk(rootPath, 0, null);
   return entries;
 }
 
