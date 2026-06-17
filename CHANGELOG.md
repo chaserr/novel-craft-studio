@@ -1,5 +1,35 @@
 # Changelog
 
+## [v0.4.0] - 2026-06-17
+
+### Features
+
+- **每文件历史版本（带 diff）**：保存自动落快照到项目内 `.orchid-history/<相对路径>/<ts>-<hash>.md`；同文件 60 秒内合并、内容相同跳过、单文件最多 50 份；点编辑器顶栏「已保存」徽章弹大模态，左栏版本列表 + 右栏行级 diff（绿色 add / 红色 remove），一键「恢复到此版本」（当前内容也会作为新快照保留）。
+- **正文字数统计**：顶栏新增靛蓝徽章实时显示「正文非空白字符数」（中文小说约定算法），不含 frontmatter / 空白 / 换行。
+- **侧栏改为递归文件夹树**：扫描深度从 2 提到 8 层，工作空间→小说→章节这种嵌套都装得下；根目录文件仍按章节 / RTK / 大纲 / 前情 / 伏笔 / 语录 / 其它分类，**子目录改成可折叠 NavLink**，dir 嵌 dir 嵌文件，深度不限；人物档案 / 写作技巧 / 审稿报告 保留专属图标，其它自建目录用通用 📂。
+- **Skill 编辑器（按文件覆盖）**：Settings → Skill 微调，树形列出 skill 与内部所有 .md，点铅笔进双栏默认 / 覆盖编辑器，每个文件独立覆盖。比如只改 `novel-write/reference/03-细节.md`，其它 7 篇仍走仓库默认。覆盖文件落 `<userData>/skills-overrides/<slug>/<原路径>`。
+- **Action 自动关联 novel-craft skill**：写下一章 / 续写 → novel-write、章末同步 → novel-sync、多角色审稿 → novel-review、去 AI 味润色 → zh-novel-polish、起草 RTK → novel-init。SKILL.md 主体 + `reference/*.md` 一并预加载（单轮调用模式下 LLM 拿不到 Read 工具，得在 prompt 里给齐）。UI 上没有 skill 选项区，对小白透明。
+- **侧栏刷新按钮放大**：sm → lg，命中区 38px，更好点。
+
+### Polish
+
+- **macOS 顶栏 Orchid 命名**：`app.setName('Orchid')` + `app.setAboutPanelOptions(...)`，dev 下不再显示 "Electron"；自建应用菜单替换默认，**Help 子菜单清掉所有 electronjs.org 链接**，只留「Orchid GitHub / Report an Issue」两项。Win / Linux 上 `Menu.setApplicationMenu(null)` 直接干掉菜单栏。
+- **App icon 按 Apple Big Sur grid**：squircle 体缩到 824×824 居中放在 1024×1024 画布，四周 100px 透明边距，dock 里跟系统 app 视觉一致大小。
+- **暗 / 亮模式适配收尾**：聊天框 / 全屏写作模式 / 章节背景 / 消息气泡 / 右键菜单全部换成 `--mantine-color-body` / `--mantine-color-default` / `--mantine-color-indigo-light` 等主题感知 token。
+- **写作面板重做**：删掉 CodeMirror「编辑」tab，预览页直接可编辑（Mantine Textarea，unstyled，居中 760 宽 / 字号 16 / 行距 1.8）。
+- **角色选择统一为多选**：去掉「写作类 action = Radio、审稿 = Checkbox」的混乱切换，全部 Checkbox 多选；默认按 action 给推荐组合（写作默 novel-writer、审稿默 5 个），可任意叠加。
+- **章节选中复选框按需显示**：仅在范围 = 选中章时才出现，尺寸跟范围按钮统一 sm；选中章为 0 时给出「在左侧勾选」提示。
+- **通知停留时间** 2000ms → 1200ms。
+
+### Fixes
+
+- **设置弹框里填路径要先保存才能微调 agent**：AgentsEditor 接受 `novelCraftPathOverride`，SettingsModal 把当前输入框值传下去，免点保存即可看到 agent 列表。
+- **右键菜单暗 / 亮模式不适配**：Paper withBorder + Divider，hover 颜色按当前 colorScheme 切。
+
+### Misc
+
+- README 末尾加「☕ 请我喝杯咖啡吧」赞助区（支付宝 / 微信支付 / AI 网文沟通群三张二维码）。
+
 ## [v0.3.1] - 2026-06-17
 
 ### Fixes
