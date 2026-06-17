@@ -61,8 +61,16 @@
 - **Windows**：下载 `Orchid-Setup-<version>.exe`
 
 首次启动需要绕过 Gatekeeper（Mac） / SmartScreen（Windows）—— 本 app 未做代码签名（开源项目，签名需付费证书）：
-- **Mac**：右键 dmg → 打开，或系统偏好设置 → 安全性与隐私 → "仍要打开"
-- **Windows**：SmartScreen 拦截后点"更多信息" → "仍要运行"
+
+- **Mac**：装好 .app 到 `/Applications/` 后，如果双击报「"Orchid"已损坏，无法打开。你应该将它移到废纸篓。」——**不是真损坏**，是 macOS 看到没苹果开发者签名一律打这个标。终端执行一行即可：
+
+  ```bash
+  xattr -cr /Applications/Orchid.app
+  ```
+
+  之后双击正常打开。如果 .app 还在 Downloads 等位置，把路径换成对应位置即可。
+
+- **Windows**：SmartScreen 拦截后点"更多信息" → "仍要运行"。
 
 ## 从源码运行（开发者）
 
