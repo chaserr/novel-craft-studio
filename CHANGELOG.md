@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.4.1] - 2026-06-17
+
+### Fixes
+
+- **打包后 prod app 默认弹 DevTools**：`mainWindow.on('ready-to-show')` 里的判断条件 `!process.env['ELECTRON_RENDERER_URL']` 在 prod 下永远 true（prod 走 file:// 加载、没有 vite dev server 注入这个变量），结果每次启动都开 DevTools。改成 `!!process.env['ELECTRON_RENDERER_URL']`，prod 不再自动弹；要诊断时设 `NOVEL_CRAFT_DEVTOOLS=1` 即可。
+
 ## [v0.4.0] - 2026-06-17
 
 ### Features

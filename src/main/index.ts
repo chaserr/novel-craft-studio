@@ -63,8 +63,14 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
-    // production 也开 devtools 方便用户诊断（稳定后可移除）
-    if (process.env.NOVEL_CRAFT_DEVTOOLS === '1' || !process.env['ELECTRON_RENDERER_URL']) {
+    // DevTools 只在两种情况下打开：
+    //  1) 用户显式 NOVEL_CRAFT_DEVTOOLS=1 启动（诊断用）
+    //  2) 通过 electron-vite dev 启动（这时会注入 ELECTRON_RENDERER_URL）
+    // 打包后的 prod app 默认不弹 DevTools。
+    if (
+      process.env.NOVEL_CRAFT_DEVTOOLS === '1' ||
+      !!process.env['ELECTRON_RENDERER_URL']
+    ) {
       mainWindow?.webContents.openDevTools({ mode: 'detach' });
     }
   });
