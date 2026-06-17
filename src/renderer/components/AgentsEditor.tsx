@@ -27,8 +27,20 @@ import { useSettings } from '../stores/settingsStore';
 import { api } from '../lib/ipc';
 import type { AgentRole } from '../../shared/types';
 
-export default function AgentsEditor(): JSX.Element {
-  const novelCraftPath = useSettings((s) => s.settings.novelCraftPath);
+interface AgentsEditorProps {
+  /**
+   * Live override for novel-craft path. SettingsModal passes its in-modal
+   * input value so the editor reflects what the user just typed/picked,
+   * before they click "保存" and the store updates.
+   */
+  novelCraftPathOverride?: string;
+}
+
+export default function AgentsEditor({
+  novelCraftPathOverride
+}: AgentsEditorProps = {}): JSX.Element {
+  const storedPath = useSettings((s) => s.settings.novelCraftPath);
+  const novelCraftPath = (novelCraftPathOverride ?? storedPath).trim();
   const [overrides, setOverrides] = useState<Record<AgentRole, boolean>>(
     {} as Record<AgentRole, boolean>
   );

@@ -9,7 +9,8 @@ import {
   ActionIcon,
   Tooltip,
   SegmentedControl,
-  ScrollArea
+  ScrollArea,
+  Textarea
 } from '@mantine/core';
 import {
   IconFolderSearch,
@@ -18,9 +19,6 @@ import {
   IconChevronLeft,
   IconChevronRight
 } from '@tabler/icons-react';
-import CodeMirror from '@uiw/react-codemirror';
-import { markdown } from '@codemirror/lang-markdown';
-import { oneDark } from '@codemirror/theme-one-dark';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useProject } from '../stores/projectStore';
@@ -81,7 +79,7 @@ function paginateByParagraph(body: string, charsPerPage = 450): string[] {
   return pages;
 }
 
-type ViewMode = 'edit' | 'preview' | 'phone';
+type ViewMode = 'preview' | 'phone';
 
 /* ============================================================ */
 /*                       ChapterEditor                            */
@@ -95,7 +93,7 @@ export default function ChapterEditor(): JSX.Element {
   const save = useProject((s) => s.saveActiveFile);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [mode, setMode] = useState<ViewMode>('edit');
+  const [mode, setMode] = useState<ViewMode>('preview');
   const [fullscreen, setFullscreen] = useState(false);
 
   // 防抖自动保存
@@ -123,10 +121,18 @@ export default function ChapterEditor(): JSX.Element {
   }, [save, fullscreen]);
 
   const parsed = useMemo(() => parseFrontmatter(content), [content]);
+  const frontmatterPrefix = useMemo(
+    () => content.slice(0, content.length - parsed.body.length),
+    [content, parsed.body]
+  );
   const pages = useMemo(
     () => paginateByParagraph(parsed.body),
     [parsed.body]
   );
+
+  const handleBodyChange = (newBody: string): void => {
+    updateContent(frontmatterPrefix + newBody);
+  };
 
   // 文件切换时翻到第 1 页
   const [pageIdx, setPageIdx] = useState(0);
@@ -157,7 +163,7 @@ export default function ChapterEditor(): JSX.Element {
   const editor = (
     <Box display="flex" style={{ flexDirection: 'column', height: '100%' }}>
       {/* 顶栏 */}
-      <Group justify="space-between" px="md" py={6} bd="1px solid var(--mantine-color-dark-4)">
+      <Group justify="space-between" px="md" py={6} bd="1px solid var(--mantine-color-default-border)">
         <Group gap={6}>
           <Text size="sm" fw={500}>
             {name}
@@ -174,8 +180,7 @@ export default function ChapterEditor(): JSX.Element {
             value={mode}
             onChange={(v) => setMode(v as ViewMode)}
             data={[
-              { value: 'edit', label: '编辑' },
-              { value: 'preview', label: '预览' },
+              { value: 'preview', label: '写作' },
               { value: 'phone', label: '手机预览' }
             ]}
           />
@@ -197,26 +202,12 @@ export default function ChapterEditor(): JSX.Element {
 
       {/* 主体 */}
       <Box style={{ flex: 1, overflow: 'hidden' }}>
-        {mode === 'edit' && (
-          <CodeMirror
-            value={content}
-            onChange={updateContent}
-            theme={oneDark}
-            extensions={[markdown()]}
-            height="100%"
-            style={{ height: '100%', fontSize: 14 }}
-            basicSetup={{
-              lineNumbers: false,
-              foldGutter: false,
-              highlightActiveLine: false
-            }}
-          />
-        )}
         {mode === 'preview' && (
-          <DesktopPreview
+          <DesktopEditor
             title={displayTitle}
             chapterNumber={parsed.chapterNumber}
             body={parsed.body}
+            onBodyChange={handleBodyChange}
           />
         )}
         {mode === 'phone' && (
@@ -239,7 +230,7 @@ export default function ChapterEditor(): JSX.Element {
           position: 'fixed',
           inset: 0,
           zIndex: 9999,
-          background: 'var(--mantine-color-dark-7)'
+          background: 'var(--mantine-color-body)'
         }}
       >
         {editor}
@@ -251,17 +242,20 @@ export default function ChapterEditor(): JSX.Element {
 }
 
 /* ============================================================ */
-/*                      Desktop preview                           */
+/*                      Desktop editor                            */
+/*  预览的排版直接作为编辑面板：居中、760 宽、字号 16 / 行距 1.8  */
 /* ============================================================ */
 
-function DesktopPreview({
+function DesktopEditor({
   title,
   chapterNumber,
-  body
+  body,
+  onBodyChange
 }: {
   title: string;
   chapterNumber: number | null;
   body: string;
+  onBodyChange: (next: string) => void;
 }): JSX.Element {
   return (
     <ScrollArea h="100%" type="auto">
@@ -276,12 +270,24 @@ function DesktopPreview({
             {title}
           </Text>
         </Stack>
-        <Box
-          className="markdown-body"
-          style={{ fontSize: 16, lineHeight: 1.8 }}
-        >
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
-        </Box>
+        <Textarea
+          value={body}
+          onChange={(e) => onBodyChange(e.currentTarget.value)}
+          variant="unstyled"
+          autosize
+          minRows={20}
+          placeholder="开始写正文…（段落之间空一行）"
+          styles={{
+            input: {
+              fontSize: 16,
+              lineHeight: 1.8,
+              fontFamily: 'inherit',
+              padding: 0,
+              background: 'transparent',
+              color: 'inherit'
+            }
+          }}
+        />
       </Box>
     </ScrollArea>
   );

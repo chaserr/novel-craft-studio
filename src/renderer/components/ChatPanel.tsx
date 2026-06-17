@@ -152,9 +152,9 @@ export default function ChatPanel(): JSX.Element {
   };
 
   return (
-    <Box display="flex" style={{ flexDirection: 'column', height: '100%' }} bg="var(--mantine-color-dark-7)">
+    <Box display="flex" style={{ flexDirection: 'column', height: '100%' }} bg="var(--mantine-color-body)">
       {/* ----------- 顶栏：会话切换 + 新建 + provider 状态 ----------- */}
-      <Group gap="xs" px="xs" py={6} justify="space-between" bd="1px solid var(--mantine-color-dark-4)">
+      <Group gap="xs" px="xs" py={6} justify="space-between" bd="1px solid var(--mantine-color-default-border)">
         <SessionPicker
           sessions={sessions}
           current={current?.id ?? null}
@@ -211,12 +211,12 @@ export default function ChatPanel(): JSX.Element {
       )}
 
       {/* ----------- 底部：输入框 + 工具栏（Codex 风格） ----------- */}
-      <Box p="sm" bd="1px solid var(--mantine-color-dark-4)">
+      <Box p="sm" bd="1px solid var(--mantine-color-default-border)">
         <Paper
           radius="lg"
           p="xs"
-          bg="var(--mantine-color-dark-6)"
-          style={{ border: '1px solid var(--mantine-color-dark-4)' }}
+          bg="var(--mantine-color-default)"
+          style={{ border: '1px solid var(--mantine-color-default-border)' }}
         >
           {/* mode 切换条 + 速度档 */}
           <Group justify="space-between" gap="xs" px={4} pb={4} wrap="nowrap">
@@ -371,9 +371,10 @@ function MessageBubble({
       radius="md"
       bg={
         message.role === 'user'
-          ? 'var(--mantine-color-indigo-9)'
-          : 'var(--mantine-color-dark-6)'
+          ? 'var(--mantine-color-indigo-light)'
+          : 'var(--mantine-color-default)'
       }
+      withBorder
     >
       <Text size="xs" c="dimmed" mb={4}>
         {message.role === 'user' ? '你' : PROVIDER_LABELS[provider]}
@@ -487,7 +488,7 @@ function EmptyState({ bookTitle, onSeed }: EmptyStateProps): JSX.Element {
   return (
     <Center style={{ flex: 1 }} p="xl">
       <Stack align="center" gap="lg" maw={420}>
-        <Title order={3} ta="center" c="gray.4">
+        <Title order={3} ta="center" c="dimmed">
           {bookTitle
             ? `我们应该在《${bookTitle}》里写什么？`
             : '随心问，处理小说边角问题'}

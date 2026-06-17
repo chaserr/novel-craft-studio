@@ -74,7 +74,6 @@ export default function WorkflowPanel(): JSX.Element {
     [files]
   );
 
-  const allowsMultiRole = action === 'review';
   const allowsRoleChoice = action !== 'free-chat';
 
   // Chapter paths resolved from current range selection
@@ -190,38 +189,32 @@ export default function WorkflowPanel(): JSX.Element {
           <div>
             <Group justify="space-between" mb={4}>
               <Text size="xs" fw={500} c="dimmed">
-                {allowsMultiRole ? '召唤的角色（可多选）' : '使用角色'}
+                召唤的角色（可多选）
               </Text>
               <Badge size="xs" variant="light">
                 {roles.length} 选中
               </Badge>
             </Group>
-            <Stack gap={2}>
+            <Stack gap={6}>
               {AGENTS.map((agent) => {
                 const checked = roles.includes(agent.id);
-                return allowsMultiRole ? (
+                return (
                   <Checkbox
                     key={agent.id}
-                    size="xs"
+                    size="sm"
                     checked={checked}
                     onChange={() => toggleRole(agent.id)}
                     label={
-                      <Tooltip label={agent.shortDescription} position="left">
-                        <span>{agent.label}</span>
-                      </Tooltip>
+                      <Box style={{ minWidth: 0 }}>
+                        <Text size="sm" fw={500}>
+                          {agent.label}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          {agent.shortDescription}
+                        </Text>
+                      </Box>
                     }
-                  />
-                ) : (
-                  <Radio
-                    key={agent.id}
-                    size="xs"
-                    checked={checked}
-                    onChange={() => toggleRole(agent.id)}
-                    label={
-                      <Tooltip label={agent.shortDescription} position="left">
-                        <span>{agent.label}</span>
-                      </Tooltip>
-                    }
+                    styles={{ labelWrapper: { flex: 1 } }}
                   />
                 );
               })}
@@ -291,21 +284,26 @@ function RangePicker({
   totalChapters
 }: RangePickerProps): JSX.Element {
   return (
-    <Stack gap={2}>
+    <Stack gap={6}>
       <Radio
-        size="xs"
+        size="sm"
         checked={range.type === 'chapter'}
         onChange={() => onChange({ type: 'chapter' })}
         label={`本章（${currentChapterCount > 0 ? '当前打开的章' : '无打开'}）`}
       />
       <Radio
-        size="xs"
+        size="sm"
         checked={range.type === 'multi'}
         onChange={() => onChange({ type: 'multi', chapterNumbers: [] })}
         label={`选中章（${selectedCount} 选中）`}
       />
+      {range.type === 'multi' && selectedCount === 0 && (
+        <Text size="xs" c="orange" ml="lg">
+          在左侧文件树「章节」分类下，点章节前的小方框、或 ⌘/Ctrl + 点击章节名来勾选。
+        </Text>
+      )}
       <Radio
-        size="xs"
+        size="sm"
         checked={range.type === 'volume'}
         onChange={() =>
           onChange({ type: 'volume', volumeIndex: volumes[0]?.index ?? 1 })
@@ -327,7 +325,7 @@ function RangePicker({
         />
       )}
       <Radio
-        size="xs"
+        size="sm"
         checked={range.type === 'book'}
         onChange={() => onChange({ type: 'book' })}
         label={`全书（${totalChapters} 章）`}

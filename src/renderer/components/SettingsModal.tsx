@@ -198,7 +198,7 @@ export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
           <Text size="sm" fw={500} mb={4}>
             Agent prompt 微调
           </Text>
-          <AgentsEditor />
+          <AgentsEditor novelCraftPathOverride={path} />
         </Box>
 
         <Divider />

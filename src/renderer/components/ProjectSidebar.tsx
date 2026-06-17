@@ -11,7 +11,9 @@ import {
   ActionIcon,
   Tooltip,
   Paper,
-  UnstyledButton
+  UnstyledButton,
+  Divider,
+  useMantineColorScheme
 } from '@mantine/core';
 import {
   IconBook2,
@@ -33,6 +35,7 @@ import {
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useProject } from '../stores/projectStore';
+import { useWorkflow } from '../stores/workflowStore';
 import { api } from '../lib/ipc';
 import type { ProjectFileEntry } from '../../shared/types';
 
@@ -68,6 +71,8 @@ export default function ProjectSidebar(): JSX.Element {
   const toggleSelected = useProject((s) => s.toggleChapterSelected);
   const refreshFiles = useProject((s) => s.refreshFiles);
   const clearActiveFile = useProject((s) => s.clearActiveFile);
+  const range = useWorkflow((s) => s.range);
+  const multiSelectMode = range.type === 'multi';
 
   const [refreshing, setRefreshing] = useState(false);
   const [menu, setMenu] = useState<ContextMenuState | null>(null);
@@ -167,6 +172,7 @@ export default function ProjectSidebar(): JSX.Element {
                       file={f}
                       active={f.path === activePath}
                       checked={selected.includes(f.path)}
+                      showCheckbox={multiSelectMode}
                       onOpen={() => openFile(f.path)}
                       onToggle={() => toggleSelected(f.path)}
                       onContextMenu={(e) => openContextMenu(e, f)}
@@ -291,14 +297,13 @@ function FileContextMenu({
         shadow="md"
         radius="sm"
         p={4}
+        withBorder
         style={{
           position: 'fixed',
           left: clampMenuPos(x, 220),
           top: clampMenuPos(y, 160, true),
           zIndex: 1001,
-          minWidth: 200,
-          border: '1px solid var(--mantine-color-dark-4)',
-          background: 'var(--mantine-color-dark-7)'
+          minWidth: 200
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -313,7 +318,7 @@ function FileContextMenu({
             label="复制路径"
             onClick={() => void handleCopyPath()}
           />
-          <Box style={{ height: 1, background: 'var(--mantine-color-dark-4)', margin: '2px 0' }} />
+          <Divider my={2} />
           <MenuItem
             icon={<IconTrash size={14} />}
             label="移到废纸篓"
@@ -340,6 +345,11 @@ interface MenuItemProps {
 }
 
 function MenuItem({ icon, label, danger, onClick }: MenuItemProps): JSX.Element {
+  const { colorScheme } = useMantineColorScheme();
+  const hoverBg =
+    colorScheme === 'dark'
+      ? 'var(--mantine-color-dark-5)'
+      : 'var(--mantine-color-gray-1)';
   return (
     <UnstyledButton
       onClick={onClick}
@@ -349,12 +359,12 @@ function MenuItem({ icon, label, danger, onClick }: MenuItemProps): JSX.Element 
         gap: 8,
         padding: '6px 10px',
         borderRadius: 4,
-        color: danger ? 'var(--mantine-color-red-4)' : undefined,
+        color: danger ? 'var(--mantine-color-red-6)' : undefined,
         fontSize: 13,
         width: '100%'
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = 'var(--mantine-color-dark-5)';
+        e.currentTarget.style.background = hoverBg;
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = 'transparent';
@@ -374,6 +384,7 @@ interface ChapterRowProps {
   file: ProjectFileEntry;
   active: boolean;
   checked: boolean;
+  showCheckbox: boolean;
   onOpen: () => void;
   onToggle: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
@@ -383,48 +394,59 @@ function ChapterRow({
   file,
   active,
   checked,
+  showCheckbox,
   onOpen,
   onToggle,
   onContextMenu
 }: ChapterRowProps): JSX.Element {
   const Icon = file.hasContent ? IconFileCheck : IconFileText;
+  const displayName = file.name.replace(/^.+?-第\d+章-/, '').replace(/\.md$/, '');
   return (
-    <Group
-      gap={4}
-      px="xs"
-      py={2}
-      wrap="nowrap"
-      style={{
-        cursor: 'pointer',
-        background: active ? 'var(--mantine-color-indigo-9)' : undefined,
-        borderRadius: 4
-      }}
+    <NavLink
+      active={active}
       onClick={(e) => {
-        // cmd/ctrl click → toggle 多选
+        // cmd/ctrl click → toggle 多选；普通点击 → 打开
         if (e.metaKey || e.ctrlKey) {
+          e.preventDefault();
           onToggle();
         } else {
           onOpen();
         }
       }}
       onContextMenu={onContextMenu}
-    >
-      <Checkbox
-        size="xs"
-        checked={checked}
-        onChange={(e) => {
-          e.stopPropagation();
-          onToggle();
-        }}
-        onClick={(e) => e.stopPropagation()}
-      />
-      <Icon size={14} color={file.hasContent ? 'var(--mantine-color-green-5)' : 'var(--mantine-color-dark-2)'} />
-      <Text size="sm" truncate="end" style={{ flex: 1 }}>
-        {file.name.replace(/^.+?-第\d+章-/, '').replace(/\.md$/, '')}
-      </Text>
-      <Text size="xs" c="dimmed">
-        {file.chapterNumber}
-      </Text>
-    </Group>
+      leftSection={
+        <Group gap={6} wrap="nowrap">
+          {showCheckbox && (
+            <Checkbox
+              size="sm"
+              checked={checked}
+              onChange={(e) => {
+                e.stopPropagation();
+                onToggle();
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
+          <Icon
+            size={14}
+            color={
+              file.hasContent
+                ? 'var(--mantine-color-green-5)'
+                : 'var(--mantine-color-dimmed)'
+            }
+          />
+        </Group>
+      }
+      label={
+        <Text size="sm" truncate="end">
+          {displayName}
+        </Text>
+      }
+      rightSection={
+        <Text size="xs" c="dimmed">
+          {file.chapterNumber}
+        </Text>
+      }
+    />
   );
 }
