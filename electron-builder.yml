@@ -2,11 +2,11 @@ appId: io.github.chaserr.orchid
 productName: Orchid
 copyright: Copyright © 2026 chaser
 
-publish:
-  - provider: github
-    owner: chaserr
-    repo: novel-craft-studio
-    releaseType: release
+# 不让 electron-builder 自己 publish；release.yml workflow 用 gh release
+# upload 显式上传 dmg / exe。这样 release 页只剩安装包，不会出现
+# .blockmap / latest*.yml（那些是给 electron-updater 用的，目前没集成
+# 自动更新，留着只是噪声）。
+differentialPackage: false
 
 directories:
   buildResources: resources

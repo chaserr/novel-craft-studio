@@ -80,6 +80,21 @@ jobs:
       #   LEDGER_REPO     → e.g. "chaserr/novel-craft-private-ledger"
       #   LEDGER_REPO_PAT → fine-grained PAT with contents:write on that repo
       # Silently skipped if either secret is missing, so forks still build.
+      # 显式创建 GitHub Release 占位，build matrix 后续会往里 upload 安装包。
+      # 把这一步从 electron-builder 内置 publish 拆出来，是为了控制 release
+      # 资产清单：只挂 dmg / exe，不再附带 .blockmap / latest*.yml。
+      - name: Create release placeholder
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.gen.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG already exists; skip creation"
+          else
+            gh release create "$TAG" --title "$TAG" \
+              --notes "See [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md) for details."
+          fi
+
       - name: Record fingerprint in private ledger
         env:
           LEDGER_REPO: ${{ secrets.LEDGER_REPO }}
@@ -166,15 +181,27 @@ jobs:
       - name: Build renderer + main (electron-vite)
         run: npm run build
 
-      - name: Build & Publish (macOS)
+      - name: Build (macOS)
+        if: matrix.os == 'macos-latest'
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm exec -- electron-builder --mac --publish never
+
+      - name: Upload mac artifacts
         if: matrix.os == 'macos-latest'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npm exec -- electron-builder --mac --publish always
+          TAG: ${{ needs.fingerprint.outputs.tag }}
+        run: gh release upload "$TAG" dist/*.dmg --clobber
 
-      - name: Build & Publish (Windows)
+      - name: Build (Windows)
         if: matrix.os == 'windows-latest'
+        run: npm exec -- electron-builder --win --publish never
+
+      - name: Upload windows artifacts
+        if: matrix.os == 'windows-latest'
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm exec -- electron-builder --win --publish always
+          TAG: ${{ needs.fingerprint.outputs.tag }}
+        run: gh release upload "$TAG" dist/*.exe --clobber
