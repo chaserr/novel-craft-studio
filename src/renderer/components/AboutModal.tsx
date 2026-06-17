@@ -19,7 +19,7 @@ import { api } from '../lib/ipc';
 import type { BuildInfo } from '../../preload/index';
 import iconUrl from '../assets/icon.png';
 
-const APP_VERSION = '0.3.0';
+const APP_VERSION = '0.3.1';
 const UPSTREAM_REPO = 'https://github.com/chaserr/novel-craft-studio';
 const LICENSE_URL = 'https://polyformproject.org/licenses/noncommercial/1.0.0';
 const COMMERCIAL_ISSUE_URL =

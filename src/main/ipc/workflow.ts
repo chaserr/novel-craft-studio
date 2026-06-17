@@ -35,6 +35,7 @@ import type {
 import { getAdapter } from '../llm/registry';
 import { resolveToken } from './cli-token';
 import { getApiKey } from './keychain';
+import { agentOverridePath } from './agents';
 
 const activeRequests = new Map<string, AbortController>();
 
@@ -71,16 +72,18 @@ async function readProjectContext(projectRoot: string): Promise<{
 
 /**
  * Read an agent's system prompt. Resolution order:
- *   1. customAgentsPath/<role>.md  (user override, optional)
- *   2. novelCraftPath/agents/<role>.md  (default novel-craft repo)
- * Lets users fork prompts without forking the whole novel-craft repo.
+ *   1. <userData>/agents-overrides/<role>.md   (UI editor override — highest)
+ *   2. customAgentsPath/<role>.md              (directory-level override, optional)
+ *   3. novelCraftPath/agents/<role>.md         (default novel-craft repo)
+ * Lets users tweak prompts either per-role from the in-app editor, or by
+ * pointing to their own forked agents directory.
  */
 async function readAgentPrompt(
   novelCraftPath: string,
   role: AgentRole,
   customAgentsPath?: string
 ): Promise<string> {
-  const candidates: string[] = [];
+  const candidates: string[] = [agentOverridePath(role)];
   if (customAgentsPath && customAgentsPath.trim()) {
     candidates.push(join(customAgentsPath, `${role}.md`));
   }

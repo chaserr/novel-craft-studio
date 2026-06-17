@@ -22,6 +22,12 @@ files:
 asarUnpack:
   - "node_modules/keytar/**/*"
 
+extraResources:
+  # Make resources/icon.png available at process.resourcesPath/icon.png at
+  # runtime so the main process can call app.dock.setIcon() / BrowserWindow.icon.
+  - from: resources/icon.png
+    to: icon.png
+
 mac:
   category: public.app-category.productivity
   icon: resources/icon.png

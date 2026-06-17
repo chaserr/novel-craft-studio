@@ -19,6 +19,7 @@ import { notifications } from '@mantine/notifications';
 import { useSettings } from '../stores/settingsStore';
 import type { ProviderId } from '../../shared/types';
 import { api } from '../lib/ipc';
+import AgentsEditor from './AgentsEditor';
 
 interface Props {
   opened: boolean;
@@ -190,49 +191,56 @@ export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
           </Group>
         </div>
 
-        {/* 自定义 agents 路径（覆盖默认 novel-craft/agents/） */}
-        <div>
+        <Divider />
+
+        {/* Agent prompt 微调（内置编辑器，推荐普通用户走这条路） */}
+        <Box>
           <Text size="sm" fw={500} mb={4}>
-            自定义 agents 路径（可选）
+            Agent prompt 微调
+          </Text>
+          <AgentsEditor />
+        </Box>
+
+        <Divider />
+
+        {/* 高级：把整个 agents 目录指向你自己的 fork */}
+        <Box>
+          <Text size="sm" fw={500} mb={4}>
+            自定义 agents 目录（高级，可选）
           </Text>
           <Text size="xs" c="dimmed" mb={6}>
-            想替换或微调单个 novel-* agent 的 system prompt？把改过的{' '}
-            <code>novel-writer.md</code> / <code>novel-polisher.md</code> 等放进
-            一个文件夹，填这里即可。优先级：此处文件 &gt; novel-craft 默认。
-            留空则全部用 novel-craft 默认。
+            想把整个 agents 目录指向自己 fork 的 novel-craft（比如做了大量改动想 git 管理）？
+            填一个本地目录路径，里面是 <code>novel-writer.md</code> / <code>novel-polisher.md</code> 等文件。
+            优先级：上面「微调」覆盖 &gt; 此处目录 &gt; novel-craft 默认。普通用户用上面的微调即可，
+            不需要填这里。
           </Text>
           <Group gap="xs">
             <TextInput
               value={agentsPath}
               onChange={(e) => setAgentsPathLocal(e.currentTarget.value)}
-              placeholder="留空 = 用 novel-craft/agents/ 默认；填则用你的自定义"
+              placeholder="留空 = 用 novel-craft/agents/ 默认"
               style={{ flex: 1 }}
             />
             <Button variant="default" onClick={() => void pickAgentsDir()}>
               选择…
             </Button>
           </Group>
-        </div>
+        </Box>
 
         <Divider />
 
-        <Text size="sm" fw={500}>
-          LLM 登录
-        </Text>
-        <Alert variant="light" color="blue" icon={<IconAlertCircle size={14} />}>
-          <Text size="xs">
-            <b>三层兜底</b>：本机 CLI token (最稳) → 自实现 OAuth (灰色地带) → 手填 API key (永远兜底)。
-            DeepSeek 没有 OAuth，只走 API key。
-          </Text>
-        </Alert>
-
-        {/* 默认 provider —— 聊天框/工作流默认走它 */}
+        {/* ============ Step 1：选哪家 LLM 作为默认 ============ */}
         <Box>
-          <Text size="xs" fw={500} mb={4}>
-            默认使用
-          </Text>
-          <Text size="xs" c="dimmed" mb={6}>
-            聊天框和工作流默认调用这个 provider。下面的 tab 只是分别配置每个 provider 的登录态，并不会切换默认。
+          <Group gap={6} mb={4}>
+            <Badge size="sm" variant="filled" color="indigo">
+              1
+            </Badge>
+            <Text size="sm" fw={600}>
+              默认 LLM Provider
+            </Text>
+          </Group>
+          <Text size="xs" c="dimmed" mb={8}>
+            聊天框、工作流、agent 默认调用这家。可以随时改，下面的「凭据配置」不影响这个选择。
           </Text>
           <SegmentedControl
             size="xs"
@@ -244,6 +252,25 @@ export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
               label: PROVIDER_LABELS[p]
             }))}
           />
+        </Box>
+
+        {/* ============ Step 2：给每家 provider 配凭据 ============ */}
+        <Box>
+          <Group gap={6} mb={4}>
+            <Badge size="sm" variant="filled" color="indigo">
+              2
+            </Badge>
+            <Text size="sm" fw={600}>
+              各 Provider 凭据（登录 / API Key）
+            </Text>
+          </Group>
+          <Alert variant="light" color="blue" icon={<IconAlertCircle size={14} />} mb={8}>
+            <Text size="xs">
+              下面三个 tab <b>只是分别配置每家的凭据</b>，<b>不会切换上面的默认</b>。
+              三层兜底：本机 CLI token（最稳）→ 自实现 OAuth（灰色地带）→ 手填 API key（永远兜底）。
+              DeepSeek 没有 OAuth，只走 API key。
+            </Text>
+          </Alert>
         </Box>
 
         <Tabs defaultValue="anthropic">

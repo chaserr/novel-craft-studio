@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
+  AgentRole,
   AppSettings,
   ChatMessage,
   ChatMode,
@@ -131,6 +132,21 @@ const api = {
       ipcRenderer.invoke('codex-sessions:list', projectRoot),
     get: (id: string): Promise<ChatSession | null> =>
       ipcRenderer.invoke('codex-sessions:get', id)
+  },
+
+  /* ---------- per-agent prompt override (in-app editor) ---------- */
+  agents: {
+    readDefault: (role: AgentRole, novelCraftPath: string): Promise<string> =>
+      ipcRenderer.invoke('agents:readDefault', role, novelCraftPath),
+    readOverride: (role: AgentRole): Promise<string | null> =>
+      ipcRenderer.invoke('agents:readOverride', role),
+    hasOverride: (role: AgentRole): Promise<boolean> =>
+      ipcRenderer.invoke('agents:hasOverride', role),
+    saveOverride: (role: AgentRole, content: string): Promise<void> =>
+      ipcRenderer.invoke('agents:saveOverride', role, content),
+    deleteOverride: (role: AgentRole): Promise<void> =>
+      ipcRenderer.invoke('agents:deleteOverride', role),
+    overrideDir: (): Promise<string> => ipcRenderer.invoke('agents:overrideDir')
   }
 };
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## [v0.3.1] - 2026-06-17
+
+### Fixes
+
+- **主题切换会误弹设置**：useEffect 拆开 + once guard，colorScheme 变化不再触发"首次启动弹设置"分支
+- **dev / 打包后 dock 图标仍是 Electron 默认**：BrowserWindow.icon + `app.dock.setIcon(resolveIconPath())`；electron-builder 增加 `extraResources` 把 `resources/icon.png` 复制到 `Contents/Resources/`
+- **Settings「默认 provider」与「provider 登录」分不清**：拆成 2 个带编号的 Section（① 默认 LLM Provider / ② 各 Provider 凭据），把「下面 tab 不会切换默认」的提示放到 alert 里
+
+### Features
+
+- **agent prompt 内置微调编辑器**：Settings 新增 12 个 agent 列表，每个可点编辑 → 弹 modal，左侧只读默认 prompt（来自 novel-craft），右侧可编辑覆盖；保存到 `<userData>/agents-overrides/<role>.md`；列表显示「已覆盖」徽章，一键重置
+- workflow 读 agent prompt 的优先级链：**UI 覆盖** > 自定义 agents 目录 > novel-craft 默认
+- 「自定义 agents 目录」字段保留为高级用法（适合作 fork + git 管理），不再是普通用户的入口
+
 ## [v0.3.0] - 2026-06-16
 
 ### 多项目 / Workspace

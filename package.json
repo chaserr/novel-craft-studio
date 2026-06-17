@@ -1,6 +1,6 @@
 {
   "name": "orchid",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Orchid — multi-LLM long-form novel writing studio for desktop (OpenAI / Claude / DeepSeek).",
   "author": "chaser",
   "license": "SEE LICENSE IN LICENSE",

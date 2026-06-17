@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   AppShell,
   Group,
@@ -52,19 +52,28 @@ export default function App(): JSX.Element {
   const openProject = useProject((s) => s.openProject);
   const { colorScheme, setColorScheme } = useMantineColorScheme();
 
+  const firstLoadAutoOpened = useRef(false);
+
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
 
-  // 用户首次启动 / 未配置 novel-craft 路径时，弹设置；否则同步 colorScheme
+  // 首次启动且 novel-craft 路径未配 → 自动弹设置一次。用 ref 守护防止
+  // 后续 settings 字段变化（比如主题切换）重复触发弹窗。
+  useEffect(() => {
+    if (!settingsLoaded || firstLoadAutoOpened.current) return;
+    firstLoadAutoOpened.current = true;
+    if (!novelCraftPath) setSettingsOpen(true);
+  }, [settingsLoaded, novelCraftPath]);
+
+  // 把 settings 里的 colorScheme 同步到 Mantine（仅在它们不一致时）
   useEffect(() => {
     if (!settingsLoaded) return;
-    if (!novelCraftPath) setSettingsOpen(true);
     if (settingsColorScheme && settingsColorScheme !== colorScheme) {
       setColorScheme(settingsColorScheme);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settingsLoaded, novelCraftPath, settingsColorScheme]);
+  }, [settingsLoaded, settingsColorScheme]);
 
   const handleOpen = async (): Promise<void> => {
     const dir = await api.project.pickDirectory();

@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { registerKeychainIpc } from './ipc/keychain';
 import { registerLlmIpc } from './ipc/llm';
@@ -6,6 +7,7 @@ import { registerProjectIpc } from './ipc/project';
 import { registerFilesIpc } from './ipc/files';
 import { registerWorkflowIpc } from './ipc/workflow';
 import { registerCodexSessionsIpc } from './ipc/codex-sessions';
+import { registerAgentsIpc } from './ipc/agents';
 import {
   BUILD_FINGERPRINT,
   BUILD_CHANNEL,
@@ -17,7 +19,16 @@ import {
 
 let mainWindow: BrowserWindow | null = null;
 
+// Resolve icon for both dev (repo/resources/icon.png) and prod
+// (electron-builder copies resources/ into Contents/Resources/).
+function resolveIconPath(): string {
+  const dev = join(__dirname, '..', '..', 'resources', 'icon.png');
+  if (existsSync(dev)) return dev;
+  return join(process.resourcesPath, 'icon.png');
+}
+
 function createWindow(): void {
+  const iconPath = resolveIconPath();
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -26,6 +37,7 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     backgroundColor: '#1a1b1e',
+    icon: iconPath,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -64,6 +76,18 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   console.info(buildBanner());
+
+  // macOS dock icon — BrowserWindow.icon 在 mac 上被忽略，需用 app.dock.setIcon。
+  // dev 下 .app bundle 是 Electron.app（默认图标），prod 下是 Orchid.app（已嵌入），
+  // 但即便 prod 我们也覆盖一遍，确保 dock 一致。
+  if (process.platform === 'darwin' && app.dock) {
+    try {
+      app.dock.setIcon(resolveIconPath());
+    } catch {
+      /* 找不到图标也不致命 */
+    }
+  }
+
   ipcMain.handle('app:build-info', () => ({
     fingerprint: BUILD_FINGERPRINT,
     channel: BUILD_CHANNEL,
@@ -77,6 +101,7 @@ app.whenReady().then(() => {
   registerLlmIpc(() => mainWindow);
   registerWorkflowIpc(() => mainWindow);
   registerCodexSessionsIpc();
+  registerAgentsIpc();
   createWindow();
 
   app.on('activate', () => {
