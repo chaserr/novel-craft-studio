@@ -28,6 +28,7 @@ import { join, basename, dirname } from 'node:path';
 import type {
   AgentRole,
   ChatMessage,
+  WorkflowAction,
   WorkflowConfig,
   WorkflowEvent,
   WorkflowRunRequest
@@ -36,6 +37,7 @@ import { getAdapter } from '../llm/registry';
 import { resolveToken } from './cli-token';
 import { getApiKey } from './keychain';
 import { agentOverridePath } from './agents';
+import { readSkillBody } from './skills';
 
 const activeRequests = new Map<string, AbortController>();
 
@@ -75,8 +77,7 @@ async function readProjectContext(projectRoot: string): Promise<{
  *   1. <userData>/agents-overrides/<role>.md   (UI editor override — highest)
  *   2. customAgentsPath/<role>.md              (directory-level override, optional)
  *   3. novelCraftPath/agents/<role>.md         (default novel-craft repo)
- * Lets users tweak prompts either per-role from the in-app editor, or by
- * pointing to their own forked agents directory.
+ * Frontmatter is stripped — only the body reaches the LLM.
  */
 async function readAgentPrompt(
   novelCraftPath: string,
@@ -93,13 +94,31 @@ async function readAgentPrompt(
     if (!existsSync(path)) continue;
     try {
       const raw = await readFile(path, 'utf-8');
-      return raw.replace(/^---[\s\S]*?---\s*/, '').trim();
+      return raw.replace(/^---\s*\n[\s\S]*?\n---\s*\n?/, '').trim();
     } catch {
       // try next candidate
     }
   }
   return '';
 }
+
+/**
+ * Action → default skill slug. Mirrors novel-craft's plugin layout so each
+ * Orchid action auto-loads the matching SKILL.md alongside the agent prompt
+ * — gives the LLM the same procedural context Claude Code would (where the
+ * skill is the user-invocable entry). UI doesn't surface skills; mapping is
+ * fixed and silent.
+ *
+ * Unmapped actions (free-chat) → no skill attached.
+ */
+const DEFAULT_SKILL_BY_ACTION: Partial<Record<WorkflowAction, string>> = {
+  'write-next': 'novel-write',
+  continue: 'novel-write',
+  sync: 'novel-sync',
+  review: 'novel-review',
+  polish: 'zh-novel-polish',
+  'draft-rtk': 'novel-init'
+};
 
 /* ---------- format chapter content for prompt ---------- */
 
@@ -146,14 +165,24 @@ async function buildSystemPrompt(args: BuildPromptArgs): Promise<{
   user: string;
 }> {
   const ctx = await readProjectContext(args.projectRoot);
-  const agentPrompt = await readAgentPrompt(args.novelCraftPath, args.role, args.customAgentsPath);
+  const agentBody = await readAgentPrompt(args.novelCraftPath, args.role, args.customAgentsPath);
   const chapters = await readChapters(args.chapterPaths);
+
+  // Action → 默认 skill：每个 action 自动配一份 novel-craft/skills/<slug>/SKILL.md
+  // 进 system prompt，把流程性指令喂给 LLM；UI 不暴露。
+  const skillSlug = DEFAULT_SKILL_BY_ACTION[args.config.action];
+  const skillBody = skillSlug
+    ? await readSkillBody(args.novelCraftPath, skillSlug)
+    : '';
 
   const actionDirective = describeAction(args.config);
 
   const systemParts: string[] = [];
   if (ctx.rtk) systemParts.push(`# 项目规则（RTK.md，最高优先级）\n\n${ctx.rtk}`);
-  if (agentPrompt) systemParts.push(`# 你的角色\n\n${agentPrompt}`);
+  if (agentBody) systemParts.push(`# 你的角色\n\n${agentBody}`);
+  if (skillBody && skillSlug) {
+    systemParts.push(`# 工序参考（${skillSlug}）\n\n${skillBody}`);
+  }
   systemParts.push(`# 当前任务\n\n${actionDirective}`);
 
   const userParts: string[] = [];
