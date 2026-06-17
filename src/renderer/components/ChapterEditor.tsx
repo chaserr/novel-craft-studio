@@ -23,6 +23,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useProject } from '../stores/projectStore';
 import { api } from '../lib/ipc';
+import HistoryPanel from './HistoryPanel';
 
 const AUTO_SAVE_DELAY = 800;
 
@@ -91,10 +92,12 @@ export default function ChapterEditor(): JSX.Element {
   const dirty = useProject((s) => s.activeFileDirty);
   const updateContent = useProject((s) => s.setActiveContent);
   const save = useProject((s) => s.saveActiveFile);
+  const meta = useProject((s) => s.meta);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [mode, setMode] = useState<ViewMode>('preview');
   const [fullscreen, setFullscreen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // 防抖自动保存
   useEffect(() => {
@@ -127,6 +130,11 @@ export default function ChapterEditor(): JSX.Element {
   );
   const pages = useMemo(
     () => paginateByParagraph(parsed.body),
+    [parsed.body]
+  );
+  // 字数 = 正文里非空白字符数（中文小说约定）
+  const charCount = useMemo(
+    () => parsed.body.replace(/\s+/g, '').length,
     [parsed.body]
   );
 
@@ -189,9 +197,21 @@ export default function ChapterEditor(): JSX.Element {
               {pageIdx + 1} / {pages.length} 页
             </Badge>
           )}
-          <Badge color={dirty ? 'yellow' : 'green'} variant="light">
-            {dirty ? '未保存' : '已保存'}
-          </Badge>
+          <Tooltip label="正文字数（不含空白）">
+            <Badge variant="light" color="indigo">
+              {charCount.toLocaleString('zh-CN')} 字
+            </Badge>
+          </Tooltip>
+          <Tooltip label="点击查看历史版本">
+            <Badge
+              color={dirty ? 'yellow' : 'green'}
+              variant="light"
+              onClick={() => setHistoryOpen(true)}
+              style={{ cursor: 'pointer' }}
+            >
+              {dirty ? '未保存' : '已保存'}
+            </Badge>
+          </Tooltip>
           <Tooltip label={fullscreen ? '退出全屏 (Esc)' : '全屏写作模式'}>
             <ActionIcon size="sm" variant="subtle" onClick={() => setFullscreen((f) => !f)}>
               {fullscreen ? <IconMinimize size={14} /> : <IconMaximize size={14} />}
@@ -223,6 +243,21 @@ export default function ChapterEditor(): JSX.Element {
     </Box>
   );
 
+  const historyModal = path && meta && (
+    <HistoryPanel
+      opened={historyOpen}
+      onClose={() => setHistoryOpen(false)}
+      projectRoot={meta.rootPath}
+      filePath={path}
+      currentContent={content}
+      onRestore={async (next) => {
+        await api.files.write(path, next);
+        updateContent(next);
+        await save();
+      }}
+    />
+  );
+
   if (fullscreen) {
     return (
       <Box
@@ -234,11 +269,17 @@ export default function ChapterEditor(): JSX.Element {
         }}
       >
         {editor}
+        {historyModal}
       </Box>
     );
   }
 
-  return editor;
+  return (
+    <>
+      {editor}
+      {historyModal}
+    </>
+  );
 }
 
 /* ============================================================ */

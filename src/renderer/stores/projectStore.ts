@@ -261,8 +261,16 @@ export const useProject = create<ProjectState>((set, get) => ({
   saveActiveFile: async () => {
     const p = get().activeFilePath;
     if (!p) return;
-    await api.files.write(p, get().activeFileContent);
+    const content = get().activeFileContent;
+    await api.files.write(p, content);
     set((state) => patchActive(state.opened, state.activeId, { activeFileDirty: false }));
+    // 写盘成功后落一份历史快照（节流逻辑在主进程里），失败不影响保存。
+    const meta = get().meta;
+    if (meta) {
+      void api.history.save(meta.rootPath, p, content).catch(() => {
+        /* ignore */
+      });
+    }
   },
 
   reloadActiveFile: async () => {

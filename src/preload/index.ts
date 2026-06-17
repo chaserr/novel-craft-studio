@@ -134,6 +134,26 @@ const api = {
       ipcRenderer.invoke('codex-sessions:get', id)
   },
 
+  /* ---------- per-file save history (.orchid-history/) ---------- */
+  history: {
+    list: (
+      projectRoot: string,
+      filePath: string
+    ): Promise<
+      { timestamp: number; path: string; size: number; hash: string }[]
+    > => ipcRenderer.invoke('history:list', projectRoot, filePath),
+    save: (
+      projectRoot: string,
+      filePath: string,
+      content: string
+    ): Promise<{ ok: boolean; reason?: string }> =>
+      ipcRenderer.invoke('history:save', projectRoot, filePath, content),
+    read: (snapshotPath: string): Promise<string> =>
+      ipcRenderer.invoke('history:read', snapshotPath),
+    delete: (snapshotPath: string): Promise<void> =>
+      ipcRenderer.invoke('history:delete', snapshotPath)
+  },
+
   /* ---------- per-file skill override (in-app editor) ---------- */
   skills: {
     list: (

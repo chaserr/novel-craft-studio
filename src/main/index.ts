@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, shell } from 'electron';
+import type { MenuItemConstructorOptions } from 'electron';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { registerKeychainIpc } from './ipc/keychain';
@@ -9,6 +10,7 @@ import { registerWorkflowIpc } from './ipc/workflow';
 import { registerCodexSessionsIpc } from './ipc/codex-sessions';
 import { registerAgentsIpc } from './ipc/agents';
 import { registerSkillsIpc } from './ipc/skills';
+import { registerHistoryIpc } from './ipc/history';
 import {
   BUILD_FINGERPRINT,
   BUILD_CHANNEL,
@@ -17,6 +19,17 @@ import {
   ORIGIN_REPO,
   buildBanner
 } from '../shared/fingerprint';
+
+// dev 模式 .app bundle 名是 "Electron"，macOS 菜单栏 / 关于面板 / Quit 菜单
+// 默认全部读 bundle 名。手动覆盖 app name 让两套模式表现一致。
+app.setName('Orchid');
+if (process.platform === 'darwin') {
+  app.setAboutPanelOptions({
+    applicationName: 'Orchid',
+    applicationVersion: app.getVersion(),
+    copyright: 'Copyright © 2026 chaser'
+  });
+}
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -75,8 +88,94 @@ function createWindow(): void {
   }
 }
 
+/**
+ * Build a macOS application menu without any Electron-default Help links
+ * (those default to electronjs.org). Standard editing roles preserved.
+ */
+function buildAppMenu(): void {
+  if (process.platform !== 'darwin') {
+    // Windows/Linux: kill the menu bar entirely (we use autoHideMenuBar anyway).
+    Menu.setApplicationMenu(null);
+    return;
+  }
+  const template: MenuItemConstructorOptions[] = [
+    {
+      label: 'Orchid',
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'pasteAndMatchStyle' },
+        { role: 'delete' },
+        { role: 'selectAll' }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' }
+      ]
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        { type: 'separator' },
+        { role: 'front' }
+      ]
+    },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'Orchid GitHub',
+          click: (): void => {
+            void shell.openExternal('https://github.com/chaserr/novel-craft-studio');
+          }
+        },
+        {
+          label: 'Report an Issue',
+          click: (): void => {
+            void shell.openExternal(
+              'https://github.com/chaserr/novel-craft-studio/issues'
+            );
+          }
+        }
+      ]
+    }
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 app.whenReady().then(() => {
   console.info(buildBanner());
+  buildAppMenu();
 
   // macOS dock icon — BrowserWindow.icon 在 mac 上被忽略，需用 app.dock.setIcon。
   // dev 下 .app bundle 是 Electron.app（默认图标），prod 下是 Orchid.app（已嵌入），
@@ -103,7 +202,8 @@ app.whenReady().then(() => {
   registerWorkflowIpc(() => mainWindow);
   registerCodexSessionsIpc();
   registerAgentsIpc();
-registerSkillsIpc();
+  registerSkillsIpc();
+  registerHistoryIpc();
   createWindow();
 
   app.on('activate', () => {
