@@ -249,23 +249,27 @@ src/
 
 <table>
   <tr>
-    <td align="center" width="25%">
+    <td align="center" width="33%">
       <b>支付宝</b><br/>
-      <img src="./docs/sponsor/alipay.jpg" alt="Alipay" width="200" />
+      <img src="./docs/sponsor/alipay.jpg" alt="Alipay" width="220" />
     </td>
-    <td align="center" width="25%">
+    <td align="center" width="33%">
       <b>微信支付</b><br/>
-      <img src="./docs/sponsor/wechat.jpg" alt="WeChat Pay" width="200" />
+      <img src="./docs/sponsor/wechat.jpg" alt="WeChat Pay" width="220" />
     </td>
-    <td align="center" width="25%">
+    <td align="center" width="33%">
       <b>Solana</b><br/>
-      <img src="./docs/sponsor/solana.png" alt="Solana" width="200" />
+      <img src="./docs/sponsor/solana.png" alt="Solana" width="220" />
       <br/><sub><code>3y2mGhpqnUrp2rR6jnij7cYxD3cSPLioviQhAtFxxsxU</code></sub>
-    </td>
-    <td align="center" width="25%">
-      <b>AI 网文沟通群</b><br/>
-      <img src="./docs/sponsor/wechat-group.png" alt="WeChat Group" width="200" />
-      <br/><sub>二维码每 7 天刷新一次</sub>
     </td>
   </tr>
 </table>
+
+## 💬 加入交流群
+
+跟其它在用 Orchid 写小说的作者一起聊聊（AI 网文沟通群）：
+
+<p align="center">
+  <img src="./docs/sponsor/wechat-group.png" alt="WeChat Group" width="240" />
+  <br/><sub>二维码每 7 天刷新一次；过期请来仓库提 issue 找最新</sub>
+</p>
