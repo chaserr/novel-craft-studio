@@ -232,3 +232,27 @@ src/
 非商业使用免费；商业使用须另行书面授权。详见 [LICENSE](./LICENSE) 与本 README 顶部「使用许可」段落。
 
 每个 release 构建都会嵌入唯一的版本指纹（`BUILD_FINGERPRINT`），用于识别二次分发来源。请勿移除或篡改 —— 这是判定违规分发的关键证据。
+
+---
+
+## ☕ 如果这个仓库帮到了你
+
+请我喝杯咖啡吧 ❤️
+
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <b>支付宝</b><br/>
+      <img src="./docs/sponsor/alipay.jpg" alt="Alipay" width="220" />
+    </td>
+    <td align="center" width="33%">
+      <b>微信支付</b><br/>
+      <img src="./docs/sponsor/wechat.jpg" alt="WeChat Pay" width="220" />
+    </td>
+    <td align="center" width="33%">
+      <b>AI 网文沟通群</b><br/>
+      <img src="./docs/sponsor/wechat-group.png" alt="WeChat Group" width="220" />
+      <br/><sub>二维码每 7 天刷新一次</sub>
+    </td>
+  </tr>
+</table>
