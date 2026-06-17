@@ -249,17 +249,22 @@ src/
 
 <table>
   <tr>
-    <td align="center" width="33%">
+    <td align="center" width="25%">
       <b>支付宝</b><br/>
-      <img src="./docs/sponsor/alipay.jpg" alt="Alipay" width="220" />
+      <img src="./docs/sponsor/alipay.jpg" alt="Alipay" width="200" />
     </td>
-    <td align="center" width="33%">
+    <td align="center" width="25%">
       <b>微信支付</b><br/>
-      <img src="./docs/sponsor/wechat.jpg" alt="WeChat Pay" width="220" />
+      <img src="./docs/sponsor/wechat.jpg" alt="WeChat Pay" width="200" />
     </td>
-    <td align="center" width="33%">
+    <td align="center" width="25%">
+      <b>Solana</b><br/>
+      <img src="./docs/sponsor/solana.png" alt="Solana" width="200" />
+      <br/><sub><code>3y2mGhpqnUrp2rR6jnij7cYxD3cSPLioviQhAtFxxsxU</code></sub>
+    </td>
+    <td align="center" width="25%">
       <b>AI 网文沟通群</b><br/>
-      <img src="./docs/sponsor/wechat-group.png" alt="WeChat Group" width="220" />
+      <img src="./docs/sponsor/wechat-group.png" alt="WeChat Group" width="200" />
       <br/><sub>二维码每 7 天刷新一次</sub>
     </td>
   </tr>
