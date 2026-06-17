@@ -134,6 +134,29 @@ const api = {
       ipcRenderer.invoke('codex-sessions:get', id)
   },
 
+  /* ---------- per-file skill override (in-app editor) ---------- */
+  skills: {
+    list: (
+      novelCraftPath: string
+    ): Promise<{ slug: string; files: string[] }[]> =>
+      ipcRenderer.invoke('skills:list', novelCraftPath),
+    readDefault: (
+      slug: string,
+      relPath: string,
+      novelCraftPath: string
+    ): Promise<string> =>
+      ipcRenderer.invoke('skills:readDefault', slug, relPath, novelCraftPath),
+    readOverride: (slug: string, relPath: string): Promise<string | null> =>
+      ipcRenderer.invoke('skills:readOverride', slug, relPath),
+    hasOverride: (slug: string, relPath: string): Promise<boolean> =>
+      ipcRenderer.invoke('skills:hasOverride', slug, relPath),
+    saveOverride: (slug: string, relPath: string, content: string): Promise<void> =>
+      ipcRenderer.invoke('skills:saveOverride', slug, relPath, content),
+    deleteOverride: (slug: string, relPath: string): Promise<void> =>
+      ipcRenderer.invoke('skills:deleteOverride', slug, relPath),
+    overrideDir: (): Promise<string> => ipcRenderer.invoke('skills:overrideDir')
+  },
+
   /* ---------- per-agent prompt override (in-app editor) ---------- */
   agents: {
     readDefault: (role: AgentRole, novelCraftPath: string): Promise<string> =>

@@ -8,6 +8,7 @@ import { registerFilesIpc } from './ipc/files';
 import { registerWorkflowIpc } from './ipc/workflow';
 import { registerCodexSessionsIpc } from './ipc/codex-sessions';
 import { registerAgentsIpc } from './ipc/agents';
+import { registerSkillsIpc } from './ipc/skills';
 import {
   BUILD_FINGERPRINT,
   BUILD_CHANNEL,
@@ -102,6 +103,7 @@ app.whenReady().then(() => {
   registerWorkflowIpc(() => mainWindow);
   registerCodexSessionsIpc();
   registerAgentsIpc();
+registerSkillsIpc();
   createWindow();
 
   app.on('activate', () => {

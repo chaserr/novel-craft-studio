@@ -20,6 +20,7 @@ import { useSettings } from '../stores/settingsStore';
 import type { ProviderId } from '../../shared/types';
 import { api } from '../lib/ipc';
 import AgentsEditor from './AgentsEditor';
+import SkillsEditor from './SkillsEditor';
 
 interface Props {
   opened: boolean;
@@ -199,6 +200,20 @@ export default function SettingsModal({ opened, onClose }: Props): JSX.Element {
             Agent prompt 微调
           </Text>
           <AgentsEditor novelCraftPathOverride={path} />
+        </Box>
+
+        <Divider />
+
+        {/* Skill 微调（每个 skill 内部按文件覆盖） */}
+        <Box>
+          <Text size="sm" fw={500} mb={4}>
+            Skill 微调
+          </Text>
+          <Text size="xs" c="dimmed" mb={6}>
+            每个 skill 里的 SKILL.md 和 reference/*.md 都可以独立覆盖。例如只改
+            <code> novel-write/reference/03-细节.md</code>，其余 7 篇仍走仓库默认。
+          </Text>
+          <SkillsEditor novelCraftPathOverride={path} />
         </Box>
 
         <Divider />
