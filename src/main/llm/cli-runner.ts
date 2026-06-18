@@ -13,8 +13,9 @@
  */
 
 import { spawn, ChildProcess } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { applyModeToSystemPrompt, type StreamChatParams } from './types';
 import { injectFingerprintIntoPrompt } from '../../shared/fingerprint';
 
@@ -249,6 +250,52 @@ function parseCodexChunk(line: string, p: StreamChatParams): void {
 /*                          Generic runner                       */
 /* ============================================================ */
 
+/**
+ * 打包后的 Electron 在 macOS 下 process.env.PATH 只有 `/usr/bin:/bin:...`，
+ * 用户装在 homebrew / nvm 下的 node 不可见，导致 codex / claude 这种以
+ * `#!/usr/bin/env node` 起头的 CLI 跑起来报「env: node: No such file」。
+ * 这里把常见 node 安装位置都拼进 PATH，再覆盖给子进程的 env。
+ */
+function augmentedPath(): string {
+  const home = homedir();
+  const win = process.platform === 'win32';
+  const sep = win ? ';' : ':';
+  const extra: string[] = win
+    ? [
+        'C:\\Program Files\\nodejs',
+        'C:\\Program Files (x86)\\nodejs',
+        `${process.env.LOCALAPPDATA ?? ''}\\Programs\\nodejs`,
+        `${process.env.APPDATA ?? ''}\\npm`
+      ]
+    : [
+        `${home}/.local/bin`,
+        `${home}/.bun/bin`,
+        '/opt/homebrew/bin',
+        '/opt/homebrew/sbin',
+        '/usr/local/bin',
+        '/usr/local/sbin',
+        '/usr/bin',
+        '/bin'
+      ];
+
+  // nvm 装的 node：把所有版本 bin 目录都加上，新版本优先。
+  if (!win) {
+    try {
+      const nvmDir = join(home, '.nvm', 'versions', 'node');
+      if (existsSync(nvmDir)) {
+        const versions = readdirSync(nvmDir).sort().reverse();
+        for (const v of versions) extra.push(join(nvmDir, v, 'bin'));
+      }
+    } catch {
+      /* nvm 没装就算了 */
+    }
+  }
+
+  const existing = (process.env.PATH ?? '').split(sep);
+  const merged = [...new Set([...extra, ...existing])].filter(Boolean);
+  return merged.join(sep);
+}
+
 async function runCli(
   bin: string,
   args: string[],
@@ -260,8 +307,8 @@ async function runCli(
     let proc: ChildProcess | null = null;
     try {
       proc = spawn(bin, args, {
-        // Inherit env so PATH / token lookups work
-        env: process.env,
+        // 给子进程一份扩充过的 PATH（让 codex/claude 内部 env node 能找到 node）。
+        env: { ...process.env, PATH: augmentedPath() },
         cwd,
         // Close stdin so CLI doesn't wait for piped input
         stdio: ['ignore', 'pipe', 'pipe']

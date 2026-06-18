@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.4.2] - 2026-06-18
+
+### Fixes
+
+- **打包后调用 codex / claude CLI 报「env: node: No such file or directory」**：生产 Electron 在 macOS 下 `process.env.PATH` 被裁成 `/usr/bin:/bin:/usr/sbin:/sbin`，而 codex 这种 npm 全局命令的 shebang `#!/usr/bin/env node` 找不到 node。`runCli` spawn 子进程时改成扩充 PATH（拼上 homebrew、nvm、`/usr/local/bin` 等常见 node 安装位置；Windows 同样拼 `nodejs` / `%APPDATA%\\npm`）。
+
 ## [v0.4.1] - 2026-06-17
 
 ### Fixes
