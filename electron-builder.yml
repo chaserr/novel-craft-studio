@@ -2,11 +2,10 @@ appId: io.github.chaserr.orchid
 productName: Orchid
 copyright: Copyright © 2026 chaser
 
-# 不让 electron-builder 自己 publish；release.yml workflow 用 gh release
-# upload 显式上传 dmg / exe。这样 release 页只剩安装包，不会出现
-# .blockmap / latest*.yml（那些是给 electron-updater 用的，目前没集成
-# 自动更新，留着只是噪声）。
-differentialPackage: false
+# 不配 publish block：electron-builder 默认不会上传也不会生成
+# .blockmap / latest*.yml（那些是给 electron-updater 差量更新用的；
+# 没集成自动更新留着只是噪声）。release.yml workflow 用 gh release
+# upload 显式上传 dmg / exe。
 
 directories:
   buildResources: resources
