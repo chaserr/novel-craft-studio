@@ -63,13 +63,15 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
-    // DevTools 只在两种情况下打开：
+    // DevTools 只在两种情况下打开（且都要求当前不是打包后的 prod app）：
     //  1) 用户显式 NOVEL_CRAFT_DEVTOOLS=1 启动（诊断用）
     //  2) 通过 electron-vite dev 启动（这时会注入 ELECTRON_RENDERER_URL）
-    // 打包后的 prod app 默认不弹 DevTools。
+    // app.isPackaged 是兜底闸：哪怕 ELECTRON_RENDERER_URL 被异常注入，
+    // 打包发行的 release 包也绝不会自动弹 DevTools。
     if (
-      process.env.NOVEL_CRAFT_DEVTOOLS === '1' ||
-      !!process.env['ELECTRON_RENDERER_URL']
+      !app.isPackaged &&
+      (process.env.NOVEL_CRAFT_DEVTOOLS === '1' ||
+        !!process.env['ELECTRON_RENDERER_URL'])
     ) {
       mainWindow?.webContents.openDevTools({ mode: 'detach' });
     }

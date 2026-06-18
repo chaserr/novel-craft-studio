@@ -15,7 +15,7 @@
 import { spawn, ChildProcess } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { applyModeToSystemPrompt, type StreamChatParams } from './types';
 import { injectFingerprintIntoPrompt } from '../../shared/fingerprint';
 
@@ -251,12 +251,21 @@ function parseCodexChunk(line: string, p: StreamChatParams): void {
 /* ============================================================ */
 
 /**
- * 打包后的 Electron 在 macOS 下 process.env.PATH 只有 `/usr/bin:/bin:...`，
+ * 打包后的 Electron 在 macOS 下 process.env.PATH 只剩 `/usr/bin:/bin:...`，
  * 用户装在 homebrew / nvm 下的 node 不可见，导致 codex / claude 这种以
  * `#!/usr/bin/env node` 起头的 CLI 跑起来报「env: node: No such file」。
- * 这里把常见 node 安装位置都拼进 PATH，再覆盖给子进程的 env。
+ *
+ * 关键约束：CLI 必须用「**它原装时旁边的那个 node**」运行——比如 codex 装在
+ * v20.10.0/bin/codex 旁边，就必须用 v20.10.0/bin/node。否则不同 node 版本对
+ * ESM 解析、optional dependency 行为有差异，会把 codex 内部找
+ * `@openai/codex-darwin-arm64` 这种 optional 依赖搞挂。
+ *
+ * 所以 PATH 的优先级是：
+ *   1. **CLI 自己 bin 目录**（cliBinDir，强制对齐 codex/claude 原装 node）
+ *   2. 常见 node 安装位置（homebrew / nvm / npm 全局）兜底
+ *   3. 系统已有 PATH 接尾
  */
-function augmentedPath(): string {
+function pathForSpawn(cliBinDir: string | null): string {
   const home = homedir();
   const win = process.platform === 'win32';
   const sep = win ? ';' : ':';
@@ -278,7 +287,7 @@ function augmentedPath(): string {
         '/bin'
       ];
 
-  // nvm 装的 node：把所有版本 bin 目录都加上，新版本优先。
+  // nvm：所有版本兜底，新版本优先（**只在 CLI 自己 bin 找不到 node 时才会用到**）
   if (!win) {
     try {
       const nvmDir = join(home, '.nvm', 'versions', 'node');
@@ -292,8 +301,12 @@ function augmentedPath(): string {
   }
 
   const existing = (process.env.PATH ?? '').split(sep);
-  const merged = [...new Set([...extra, ...existing])].filter(Boolean);
-  return merged.join(sep);
+  const merged = [
+    ...(cliBinDir ? [cliBinDir] : []),
+    ...extra,
+    ...existing
+  ];
+  return [...new Set(merged)].filter(Boolean).join(sep);
 }
 
 async function runCli(
@@ -306,11 +319,13 @@ async function runCli(
   return new Promise<void>((resolve) => {
     let proc: ChildProcess | null = null;
     try {
+      // 把 bin 自己的目录强制塞到 PATH 第一位 —— 这样 codex/claude 的
+      // `#!/usr/bin/env node` shebang 命中的就是它原装那个 node，避免
+      // 跨版本 ESM/optional-deps 解析行为差异。
+      const cliBinDir = dirname(bin);
       proc = spawn(bin, args, {
-        // 给子进程一份扩充过的 PATH（让 codex/claude 内部 env node 能找到 node）。
-        env: { ...process.env, PATH: augmentedPath() },
+        env: { ...process.env, PATH: pathForSpawn(cliBinDir) },
         cwd,
-        // Close stdin so CLI doesn't wait for piped input
         stdio: ['ignore', 'pipe', 'pipe']
       });
     } catch (err) {

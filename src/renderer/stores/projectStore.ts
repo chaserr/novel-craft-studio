@@ -271,6 +271,18 @@ export const useProject = create<ProjectState>((set, get) => ({
         /* ignore */
       });
     }
+    // 如果保存的是 RTK / 小说大纲 / 章节大纲，重算 sparse 标志，
+    // WelcomeView 的 5 步引导才能跟上当前进度。
+    const saved = get().files.find((f) => f.path === p);
+    if (
+      saved &&
+      (saved.category === 'rtk' ||
+        saved.category === 'outline' ||
+        saved.category === 'chapter-outline')
+    ) {
+      const sparse = await probeAllSparse(get().files);
+      set((state) => patchActive(state.opened, state.activeId, sparse));
+    }
   },
 
   reloadActiveFile: async () => {

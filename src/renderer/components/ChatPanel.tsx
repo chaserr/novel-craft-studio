@@ -270,18 +270,47 @@ export default function ChatPanel(): JSX.Element {
             }}
             disabled={streaming}
           />
-          <Group justify="space-between" mt={4} px={4}>
-            <Group gap={4}>
+          <Group justify="space-between" mt={4} px={4} wrap="nowrap">
+            <Group gap={4} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
               <Badge size="xs" variant="light" color="indigo" leftSection={<IconRobot size={10} />}>
                 {PROVIDER_LABELS[activeProvider]}
               </Badge>
               {projectMeta && (
-                <Badge size="xs" variant="light" color="grape">
+                <Badge
+                  size="xs"
+                  variant="light"
+                  color="grape"
+                  maw={140}
+                  styles={{
+                    root: { overflow: 'hidden' },
+                    label: {
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }
+                  }}
+                  title={projectMeta.bookTitle}
+                >
                   {projectMeta.bookTitle}
                 </Badge>
               )}
               {mode === 'edit' && activeFileName && (
-                <Badge size="xs" variant="light" color="teal" leftSection={<IconFileText size={10} />}>
+                <Badge
+                  size="xs"
+                  variant="light"
+                  color="teal"
+                  leftSection={<IconFileText size={10} />}
+                  maw={160}
+                  styles={{
+                    root: { overflow: 'hidden' },
+                    label: {
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }
+                  }}
+                  title={activeFileName}
+                >
                   {activeFileName}
                 </Badge>
               )}
@@ -487,8 +516,17 @@ function EmptyState({ bookTitle, onSeed }: EmptyStateProps): JSX.Element {
       ];
   return (
     <Center style={{ flex: 1 }} p="xl">
-      <Stack align="center" gap="lg" maw={420}>
-        <Title order={3} ta="center" c="dimmed">
+      <Stack align="center" gap="lg" maw={420} style={{ width: '100%', minWidth: 0 }}>
+        <Title
+          order={3}
+          ta="center"
+          c="dimmed"
+          style={{
+            wordBreak: 'break-word',
+            overflowWrap: 'anywhere',
+            maxWidth: '100%'
+          }}
+        >
           {bookTitle
             ? `我们应该在《${bookTitle}》里写什么？`
             : '随心问，处理小说边角问题'}
