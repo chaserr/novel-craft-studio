@@ -240,3 +240,7 @@ src/
 非商业使用免费；商业使用须另行书面授权。详见 [LICENSE](./LICENSE) 与本 README 顶部「使用许可」段落。
 
 每个 release 构建都会嵌入唯一的版本指纹（`BUILD_FINGERPRINT`），用于识别二次分发来源。请勿移除或篡改 —— 这是判定违规分发的关键证据。
+
+## 💬 交流群
+
+跟其它在用 Orchid 写小说的作者一起聊聊（AI 网文沟通群）——入群二维码统一维护在 novel-craft 仓库：[点此扫码进群 →](https://github.com/chaserr/novel-craft#加入交流群)
